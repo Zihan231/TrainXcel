@@ -160,11 +160,11 @@ JWT_SECRET=your_cryptographically_secure_random_key_here
 Because authentication uses secure **HTTP-Only Cookies**, web browsers protect and manage the token automatically. When connecting your frontend application (e.g. React, Next.js, Vue), follow these guidelines:
 
 ### 1. Enable Credentials (CORS)
-To allow cookies to pass between different origins (e.g. frontend running on `http://localhost:3000` and backend on `http://localhost:5000`):
+To allow cookies to pass between different origins (e.g. frontend running on `http://localhost:3005` and backend on `http://localhost:3000`):
 * Make sure `cors` is enabled in `main.ts` with `credentials: true`:
   ```typescript
   app.enableCors({
-    origin: 'http://localhost:3000', // Your frontend URL
+    origin: 'http://localhost:3005', // Your frontend URL
     credentials: true,
   });
   ```
