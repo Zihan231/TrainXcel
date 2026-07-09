@@ -60,11 +60,16 @@ export class CoursesService implements OnModuleInit {
   }
 
   private async seedMockData() {
-    // Clean up old mock data format or incomplete mock datasets (< 4 courses or < 5 enrollments)
+    // Clean up old mock data format or incomplete mock datasets
     const oldCourse = await this.courseRepository.findOne({ where: { courseId: 'TS-101' } as any });
     const courseCountBefore = await this.courseRepository.count();
-    const enrollmentCountBefore = await this.enrollmentRepository.count();
-    if (oldCourse || (courseCountBefore > 0 && courseCountBefore < 4) || enrollmentCountBefore < 5) {
+    const hasFebSeed = await this.enrollmentRepository.findOne({
+      where: {
+        createdAt: new Date('2026-02-15T12:00:00Z'),
+      },
+    });
+
+    if (oldCourse || (courseCountBefore > 0 && courseCountBefore < 4) || !hasFebSeed) {
       this.logger.log('Old or incomplete mock data found. Wiping database tables for re-seeding...');
       // Truncate categories and cascade down the foreign key chain to clear courses, lessons, and enrollments
       await this.categoryRepository.query('TRUNCATE TABLE "categories" CASCADE;');
