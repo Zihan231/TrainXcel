@@ -60,10 +60,11 @@ export class CoursesService implements OnModuleInit {
   }
 
   private async seedMockData() {
-    // Clean up old mock data format or incomplete mock datasets (< 4 courses)
+    // Clean up old mock data format or incomplete mock datasets (< 4 courses or < 5 enrollments)
     const oldCourse = await this.courseRepository.findOne({ where: { courseId: 'TS-101' } as any });
     const courseCountBefore = await this.courseRepository.count();
-    if (oldCourse || (courseCountBefore > 0 && courseCountBefore < 4)) {
+    const enrollmentCountBefore = await this.enrollmentRepository.count();
+    if (oldCourse || (courseCountBefore > 0 && courseCountBefore < 4) || enrollmentCountBefore < 5) {
       this.logger.log('Old or incomplete mock data found. Wiping database tables for re-seeding...');
       // Truncate categories and cascade down the foreign key chain to clear courses, lessons, and enrollments
       await this.categoryRepository.query('TRUNCATE TABLE "categories" CASCADE;');
@@ -163,6 +164,7 @@ export class CoursesService implements OnModuleInit {
           course: savedCourse1,
           completedLessons: [lesson1_1, lesson1_2], // 2 of 4 completed
           progress: 50.0,
+          createdAt: new Date('2026-02-15T12:00:00Z'),
         });
 
         const enr2 = this.enrollmentRepository.create({
@@ -170,6 +172,7 @@ export class CoursesService implements OnModuleInit {
           course: savedCourse2,
           completedLessons: [lesson2_1, lesson2_2, lesson2_3], // 3 of 3 completed
           progress: 100.0,
+          createdAt: new Date('2026-03-20T12:00:00Z'),
         });
 
         const enr3 = this.enrollmentRepository.create({
@@ -177,6 +180,7 @@ export class CoursesService implements OnModuleInit {
           course: savedCourse4,
           completedLessons: [lesson4_1], // 1 of 3 completed
           progress: 33.33,
+          createdAt: new Date('2026-04-10T12:00:00Z'),
         });
 
         await this.enrollmentRepository.save([enr1, enr2, enr3]);
@@ -189,6 +193,7 @@ export class CoursesService implements OnModuleInit {
           course: savedCourse1,
           completedLessons: [lesson1_1, lesson1_2, lesson1_3, lesson1_4], // 4 of 4 completed
           progress: 100.0,
+          createdAt: new Date('2026-05-05T12:00:00Z'),
         });
 
         const enr5 = this.enrollmentRepository.create({
@@ -196,6 +201,7 @@ export class CoursesService implements OnModuleInit {
           course: savedCourse3,
           completedLessons: [lesson3_1], // 1 of 3 completed
           progress: 33.33,
+          createdAt: new Date('2026-06-18T12:00:00Z'),
         });
 
         await this.enrollmentRepository.save([enr4, enr5]);
