@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, LessThan } from 'typeorm';
+import { Repository, Like, LessThan, MoreThanOrEqual } from 'typeorm';
 import { Course } from './entities/course.entity';
 import { Lesson } from './entities/lesson.entity';
 import { Category } from './entities/category.entity';
@@ -567,15 +567,49 @@ export class CoursesService implements OnModuleInit {
   }
 
   async getMonthlyProgress(): Promise<{ month: string; progress: number }[]> {
-    // Generate simulated monthly progress trend (great for UI graphs)
-    return [
-      { month: 'Jan', progress: 10.5 },
-      { month: 'Feb', progress: 24.0 },
-      { month: 'Mar', progress: 38.5 },
-      { month: 'Apr', progress: 51.0 },
-      { month: 'May', progress: 63.8 },
-      { month: 'Jun', progress: 78.4 },
-    ];
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+    const enrollments = await this.enrollmentRepository.find({
+      where: {
+        createdAt: MoreThanOrEqual(twelveMonthsAgo),
+      },
+      order: {
+        createdAt: 'ASC',
+      },
+    });
+
+    if (enrollments.length === 0) {
+      // Fallback placeholder data so graphs do not break when database is empty
+      return [
+        { month: 'Jan 2026', progress: 10.5 },
+        { month: 'Feb 2026', progress: 24.0 },
+        { month: 'Mar 2026', progress: 38.5 },
+        { month: 'Apr 2026', progress: 51.0 },
+        { month: 'May 2026', progress: 63.8 },
+        { month: 'Jun 2026', progress: 78.4 },
+      ];
+    }
+
+    const monthlyData: { [key: string]: { sum: number; count: number } } = {};
+
+    enrollments.forEach((e) => {
+      const date = new Date(e.createdAt);
+      const monthName = date.toLocaleString('default', { month: 'short' }); // e.g. "Jul"
+      const year = date.getFullYear(); // e.g. 2026
+      const key = `${monthName} ${year}`;
+
+      if (!monthlyData[key]) {
+        monthlyData[key] = { sum: 0, count: 0 };
+      }
+      monthlyData[key].sum += e.progress;
+      monthlyData[key].count++;
+    });
+
+    return Object.keys(monthlyData).map((key) => ({
+      month: key,
+      progress: Math.round((monthlyData[key].sum / monthlyData[key].count) * 100) / 100,
+    }));
   }
 
   async getCourseProgressComparison(): Promise<{ courseId: string; name: string; enrolledCount: number; completionRate: number }[]> {
