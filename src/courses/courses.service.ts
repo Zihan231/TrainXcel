@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, LessThan, MoreThanOrEqual } from 'typeorm';
+import { Repository, Like, LessThan, MoreThanOrEqual, ILike } from 'typeorm';
 import { Course } from './entities/course.entity';
 import { Lesson } from './entities/lesson.entity';
 import { Category } from './entities/category.entity';
@@ -580,17 +580,17 @@ export class CoursesService implements OnModuleInit {
   async searchUnified(query: string): Promise<{ courses: Course[]; employees: Omit<User, 'password'>[] }> {
     const courses = await this.courseRepository.find({
       where: [
-        { name: Like(`%${query}%`) },
-        { courseId: Like(`%${query}%`) },
+        { name: ILike(`%${query}%`) },
+        { courseId: ILike(`%${query}%`) },
       ],
       relations: { category: true },
     });
 
     const employees = await this.userRepository.find({
       where: [
-        { role: 'employee', name: Like(`%${query}%`) },
-        { role: 'employee', email: Like(`%${query}%`) },
-        { role: 'employee', userId: Like(`%${query}%`) },
+        { role: 'employee', name: ILike(`%${query}%`) },
+        { role: 'employee', email: ILike(`%${query}%`) },
+        { role: 'employee', userId: ILike(`%${query}%`) },
       ],
     });
 
@@ -605,8 +605,8 @@ export class CoursesService implements OnModuleInit {
   async searchCoursesOnly(query: string): Promise<Course[]> {
     return this.courseRepository.find({
       where: [
-        { name: Like(`%${query}%`) },
-        { courseId: Like(`%${query}%`) },
+        { name: ILike(`%${query}%`) },
+        { courseId: ILike(`%${query}%`) },
       ],
       relations: { category: true, lessons: true },
     });

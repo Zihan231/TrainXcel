@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, ConflictException, UnauthorizedException, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { User } from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
@@ -181,10 +181,10 @@ export class AuthService implements OnModuleInit {
   async searchUsers(query: string): Promise<Omit<User, 'password'>[]> {
     const users = await this.userRepository.find({
       where: [
-        { name: Like(`%${query}%`) },
-        { email: Like(`%${query}%`) },
-        { role: Like(`%${query}%`) },
-        { userId: Like(`%${query}%`) },
+        { name: ILike(`%${query}%`) },
+        { email: ILike(`%${query}%`) },
+        { role: ILike(`%${query}%`) },
+        { userId: ILike(`%${query}%`) },
       ],
     });
     return users.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
