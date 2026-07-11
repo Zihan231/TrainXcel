@@ -123,6 +123,16 @@ export class CoursesController {
     return this.coursesService.updateCourse(courseId, updateCourseDto);
   }
 
+  @Patch(':courseId/status')
+  @UseGuards(JwtAuthGuard)
+  async updateCourseStatus(
+    @Param('courseId') courseId: string,
+    @Body('status') status: string,
+    @Req() req: any,
+  ) {
+    return this.coursesService.updateCourseStatus(courseId, status, req.user.userId);
+  }
+
   // --- Lessons ---
   @Post(':courseId/lessons')
   @UseGuards(JwtAuthGuard)

@@ -412,6 +412,28 @@ export class CoursesService implements OnModuleInit {
     return this.courseRepository.save(course);
   }
 
+  async updateCourseStatus(courseId: string, status: string, userId: string): Promise<Course> {
+    const user = await this.userRepository.findOne({ where: { userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+    if (user.role !== 'admin' && user.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can update course status');
+    }
+
+    if (status !== 'active' && status !== 'inactive' && status !== 'draft') {
+      throw new BadRequestException('Invalid course status. Must be active, inactive, or draft');
+    }
+
+    const course = await this.courseRepository.findOne({ where: { courseId } });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    course.status = status;
+    return this.courseRepository.save(course);
+  }
+
   // --- Lesson Logic ---
   async addLessonToCourse(courseId: string, createLessonDto: CreateLessonDto): Promise<Lesson> {
     const user = await this.userRepository.findOne({ where: { userId: createLessonDto.userId } });
