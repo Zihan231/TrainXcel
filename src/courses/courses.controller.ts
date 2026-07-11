@@ -134,6 +134,11 @@ export class CoursesController {
   }
 
   // --- Lessons ---
+  @Get(':courseId/lessons')
+  async getLessons(@Param('courseId') courseId: string) {
+    return this.coursesService.getLessonsByCourseId(courseId);
+  }
+
   @Post(':courseId/lessons')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)

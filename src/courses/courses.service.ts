@@ -435,6 +435,29 @@ export class CoursesService implements OnModuleInit {
   }
 
   // --- Lesson Logic ---
+  async getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
+    const course = await this.courseRepository.findOne({ where: { courseId } });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    return this.lessonRepository.find({
+      where: { course: { id: course.id } },
+      select: {
+        id: true,
+        lessonId: true,
+        title: true,
+        description: true,
+        materialType: true,
+        materialLink: true,
+        status: true,
+      },
+      order: {
+        id: 'ASC',
+      },
+    });
+  }
+
   async addLessonToCourse(courseId: string, createLessonDto: CreateLessonDto): Promise<Lesson> {
     const user = await this.userRepository.findOne({ where: { userId: createLessonDto.userId } });
     if (!user) {
