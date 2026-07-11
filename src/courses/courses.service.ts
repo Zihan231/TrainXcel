@@ -254,7 +254,7 @@ export class CoursesService implements OnModuleInit {
     });
   }
 
-  async getCoursesPaginated(page: number = 1, limit: number = 6): Promise<{ data: Course[]; meta: any }> {
+  async getCoursesPaginated(page: number = 1, limit: number = 6): Promise<{ data: any[]; meta: any }> {
     const skippedItems = (page - 1) * limit;
 
     const [courses, total] = await Promise.all([
@@ -264,7 +264,20 @@ export class CoursesService implements OnModuleInit {
         relations: {
           category: true,
           lessons: true,
-          enrollments: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          courseId: true,
+          enrolled: true,
+          status: true,
+          category: {
+            id: true,
+            name: true,
+          },
+          lessons: {
+            id: true, // Only fetch lesson IDs to count them
+          },
         },
         order: {
           id: 'ASC',
@@ -274,8 +287,11 @@ export class CoursesService implements OnModuleInit {
     ]);
 
     const data = courses.map((course) => {
-      course.completionRate = this.calculateOverallCompletionRate(course);
-      return course;
+      const { lessons, ...courseData } = course;
+      return {
+        ...courseData,
+        totalLessons: lessons ? lessons.length : 0,
+      };
     });
 
     const totalPages = Math.ceil(total / limit);
