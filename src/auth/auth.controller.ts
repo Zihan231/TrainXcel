@@ -19,8 +19,8 @@ export class AuthController {
     const { user, token } = await this.authService.register(registerDto);
     response.cookie('jwt', token, {
       httpOnly: true,
-      secure: false, // true in production
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 3600 * 1000, // 1 hour
     });
     return user;
@@ -35,8 +35,8 @@ export class AuthController {
     const { user, token } = await this.authService.login(loginDto);
     response.cookie('jwt', token, {
       httpOnly: true,
-      secure: false, // true in production
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 3600 * 1000, // 1 hour
     });
     return user;
