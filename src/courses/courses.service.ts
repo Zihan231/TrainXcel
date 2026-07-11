@@ -560,11 +560,13 @@ export class CoursesService implements OnModuleInit {
 
   // --- Statistics & Analytics ---
   async getDashboardStats(): Promise<{ totalUsers: number; totalCourses: number; totalEmployees: number; overallCompletionRate: number }> {
-    const totalUsers = await this.userRepository.count();
-    const totalCourses = await this.courseRepository.count();
-    const totalEmployees = await this.userRepository.count({ where: { role: 'employee' } });
+    const [totalUsers, totalCourses, totalEmployees, enrollments] = await Promise.all([
+      this.userRepository.count(),
+      this.courseRepository.count(),
+      this.userRepository.count({ where: { role: 'employee' } }),
+      this.enrollmentRepository.find({ select: { progress: true } }), // Only select progress to reduce DB bandwidth
+    ]);
     
-    const enrollments = await this.enrollmentRepository.find();
     const overallCompletionRate = enrollments.length > 0
       ? Math.round((enrollments.reduce((sum, e) => sum + e.progress, 0) / enrollments.length) * 100) / 100
       : 0;
