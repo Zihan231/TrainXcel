@@ -5,11 +5,6 @@ export class CreateCourseDto {
   @IsNotEmpty({ message: 'Course name is required' })
   name: string;
 
-
-  @IsString()
-  @IsNotEmpty({ message: 'User ID is required' })
-  userId: string;
-
   @IsNumber()
   @IsOptional()
   categoryId?: number;

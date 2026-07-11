@@ -2,10 +2,6 @@ import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validato
 
 export class UpdateCourseDto {
   @IsString()
-  @IsNotEmpty({ message: 'User ID is required for validation' })
-  userId: string;
-
-  @IsString()
   @IsOptional()
   name?: string;
 

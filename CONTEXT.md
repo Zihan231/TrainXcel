@@ -147,6 +147,24 @@ JwtAuthGuard used on protected routes — reads cookie automatically.
 - employee — can create and manage courses and lessons
 - admin — full access including role management
 
+### Security Model for Protected Endpoints
+
+All endpoints that require a role check (admin/employee) use the following hardened pattern:
+
+1. JwtAuthGuard validates the cookie and populates req.user = { userId, role }
+2. Controller extracts req.user.userId (never trusts req.user.role or any body field)
+3. Controller passes userId to the service as a separate requesterId parameter
+4. Service queries the DB fresh using that requesterId to get the current role
+5. Role check is performed against the live DB record, not the JWT payload
+
+This prevents:
+- A user sending a spoofed userId in the request body to impersonate another user
+- A stale JWT role being used (e.g., user demoted after login but JWT still says admin)
+- Any injection of admin userId through request body fields
+
+DTOs that previously contained userId (CreateCourseDto, UpdateCourseDto, CreateLessonDto,
+UpdateLessonDto) have had userId removed entirely. The client CANNOT send userId.
+
 ---
 
 ## 7. Courses Module (/courses)
@@ -460,3 +478,4 @@ Frontend project: c:\XR Interactive\trainxcel-frontend
 | 21 | User role update endpoint PATCH /auth/users/:userId/role        |
 | 22 | Unified search optimized — no over-fetching, totalLessons count |
 | 23 | Security: PATCH /auth/users/:userId checks requester ID matches URL userId (admin bypass) |
+| 24 | Security: Removed userId from all DTOs. Role re-verified from DB via requesterId param in all privileged service methods |

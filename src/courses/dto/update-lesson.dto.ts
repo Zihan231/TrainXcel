@@ -1,10 +1,6 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class UpdateLessonDto {
-  @IsString()
-  @IsNotEmpty({ message: 'User ID is required for validation' })
-  userId: string;
-
   @IsString()
   @IsOptional()
   title?: string;

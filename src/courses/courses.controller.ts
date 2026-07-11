@@ -108,8 +108,7 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   async createCourse(@Body() createCourseDto: CreateCourseDto, @Req() req: any) {
-    createCourseDto.userId = req.user.userId;
-    return this.coursesService.createCourse(createCourseDto);
+    return this.coursesService.createCourse(createCourseDto, req.user.userId);
   }
 
   @Patch(':courseId')
@@ -119,8 +118,7 @@ export class CoursesController {
     @Body() updateCourseDto: UpdateCourseDto,
     @Req() req: any,
   ) {
-    updateCourseDto.userId = req.user.userId;
-    return this.coursesService.updateCourse(courseId, updateCourseDto);
+    return this.coursesService.updateCourse(courseId, updateCourseDto, req.user.userId);
   }
 
   @Patch(':courseId/status')
@@ -147,8 +145,7 @@ export class CoursesController {
     @Body() createLessonDto: CreateLessonDto,
     @Req() req: any,
   ) {
-    createLessonDto.userId = req.user.userId;
-    return this.coursesService.addLessonToCourse(courseId, createLessonDto);
+    return this.coursesService.addLessonToCourse(courseId, createLessonDto, req.user.userId);
   }
 
   @Patch(':courseId/lessons/:lessonId')
@@ -159,8 +156,7 @@ export class CoursesController {
     @Body() updateLessonDto: UpdateLessonDto,
     @Req() req: any,
   ) {
-    updateLessonDto.userId = req.user.userId;
-    return this.coursesService.updateLesson(courseId, lessonId, updateLessonDto);
+    return this.coursesService.updateLesson(courseId, lessonId, updateLessonDto, req.user.userId);
   }
 
   // --- Enrollment & Progress ---

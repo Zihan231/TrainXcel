@@ -358,12 +358,13 @@ export class CoursesService implements OnModuleInit {
     return course;
   }
 
-  async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
-    const user = await this.userRepository.findOne({ where: { userId: createCourseDto.userId } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${createCourseDto.userId} not found`);
+  async createCourse(createCourseDto: CreateCourseDto, requesterId: string): Promise<Course> {
+    // Always verify role from DB using the JWT-authenticated userId — never trust client body
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
     }
-    if (user.role !== 'admin' && user.role !== 'employee') {
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
       throw new ForbiddenException('Only admin and employee users can create courses');
     }
 
@@ -386,12 +387,13 @@ export class CoursesService implements OnModuleInit {
     return this.courseRepository.save(course);
   }
 
-  async updateCourse(courseId: string, updateCourseDto: UpdateCourseDto): Promise<Course> {
-    const user = await this.userRepository.findOne({ where: { userId: updateCourseDto.userId } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${updateCourseDto.userId} not found`);
+  async updateCourse(courseId: string, updateCourseDto: UpdateCourseDto, requesterId: string): Promise<Course> {
+    // Always verify role from DB using the JWT-authenticated userId
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
     }
-    if (user.role !== 'admin' && user.role !== 'employee') {
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
       throw new ForbiddenException('Only admin and employee users can update courses');
     }
 
@@ -458,12 +460,13 @@ export class CoursesService implements OnModuleInit {
     });
   }
 
-  async addLessonToCourse(courseId: string, createLessonDto: CreateLessonDto): Promise<Lesson> {
-    const user = await this.userRepository.findOne({ where: { userId: createLessonDto.userId } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${createLessonDto.userId} not found`);
+  async addLessonToCourse(courseId: string, createLessonDto: CreateLessonDto, requesterId: string): Promise<Lesson> {
+    // Always verify role from DB using the JWT-authenticated userId
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
     }
-    if (user.role !== 'admin' && user.role !== 'employee') {
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
       throw new ForbiddenException('Only admin and employee users can add lessons to courses');
     }
 
@@ -502,12 +505,13 @@ export class CoursesService implements OnModuleInit {
     return savedLesson;
   }
 
-  async updateLesson(courseId: string, lessonId: string, updateLessonDto: UpdateLessonDto): Promise<Lesson> {
-    const user = await this.userRepository.findOne({ where: { userId: updateLessonDto.userId } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${updateLessonDto.userId} not found`);
+  async updateLesson(courseId: string, lessonId: string, updateLessonDto: UpdateLessonDto, requesterId: string): Promise<Lesson> {
+    // Always verify role from DB using the JWT-authenticated userId
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
     }
-    if (user.role !== 'admin' && user.role !== 'employee') {
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
       throw new ForbiddenException('Only admin and employee users can update lessons');
     }
 
