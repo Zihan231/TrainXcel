@@ -19,6 +19,11 @@ import { CoursesModule } from './courses/courses.module';
       ssl: {
         rejectUnauthorized: false, // Required for Neon DB connection
       },
+      extra: {
+        max: 20, // Maximum number of connections in the pool
+        idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+        connectionTimeoutMillis: 5000, // Connection timeout threshold
+      },
     }),
     AuthModule,
     CoursesModule,
