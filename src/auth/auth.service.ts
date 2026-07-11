@@ -109,7 +109,19 @@ export class AuthService implements OnModuleInit {
   }
 
   async login(loginDto: LoginDto): Promise<{ user: Omit<User, 'password'>; token: string }> {
-    const user = await this.userRepository.findOne({ where: { email: loginDto.email } });
+    const user = await this.userRepository.findOne({
+      where: { email: loginDto.email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        password: true,
+        userId: true,
+        role: true,
+        phoneNumber: true,
+        address: true,
+      }, // Explicitly fetch password
+    });
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
