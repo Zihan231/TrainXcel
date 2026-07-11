@@ -577,13 +577,27 @@ export class CoursesService implements OnModuleInit {
   }
 
   // --- Search Logic ---
-  async searchUnified(query: string): Promise<{ courses: Course[]; employees: Omit<User, 'password'>[] }> {
+  async searchUnified(query: string): Promise<{ courses: any[]; employees: Omit<User, 'password'>[] }> {
     const courses = await this.courseRepository.find({
       where: [
         { name: ILike(`%${query}%`) },
         { courseId: ILike(`%${query}%`) },
       ],
-      relations: { category: true },
+      relations: { category: true, lessons: true },
+      select: {
+        id: true,
+        name: true,
+        courseId: true,
+        enrolled: true,
+        status: true,
+        category: {
+          id: true,
+          name: true,
+        },
+        lessons: {
+          id: true,
+        },
+      },
     });
 
     const employees = await this.userRepository.find({
@@ -596,19 +610,49 @@ export class CoursesService implements OnModuleInit {
 
     const employeesWithoutPassword = employees.map(({ password, ...user }) => user);
 
+    const mappedCourses = courses.map((course) => {
+      const { lessons, ...courseData } = course;
+      return {
+        ...courseData,
+        totalLessons: lessons ? lessons.length : 0,
+      };
+    });
+
     return {
-      courses,
+      courses: mappedCourses,
       employees: employeesWithoutPassword,
     };
   }
 
-  async searchCoursesOnly(query: string): Promise<Course[]> {
-    return this.courseRepository.find({
+  async searchCoursesOnly(query: string): Promise<any[]> {
+    const courses = await this.courseRepository.find({
       where: [
         { name: ILike(`%${query}%`) },
         { courseId: ILike(`%${query}%`) },
       ],
       relations: { category: true, lessons: true },
+      select: {
+        id: true,
+        name: true,
+        courseId: true,
+        enrolled: true,
+        status: true,
+        category: {
+          id: true,
+          name: true,
+        },
+        lessons: {
+          id: true,
+        },
+      },
+    });
+
+    return courses.map((course) => {
+      const { lessons, ...courseData } = course;
+      return {
+        ...courseData,
+        totalLessons: lessons ? lessons.length : 0,
+      };
     });
   }
 
