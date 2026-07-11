@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index } from 'typeorm';
 import { Category } from './category.entity';
 import { Lesson } from './lesson.entity';
 import { Enrollment } from './enrollment.entity';
@@ -8,6 +8,7 @@ export class Course {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Index()
   @Column()
   name: string;
 
@@ -17,6 +18,7 @@ export class Course {
   @Column({ default: 0 })
   enrolled: number;
 
+  @Index()
   @Column({ default: 'draft' })
   status: string; // 'active' | 'inactive' | 'draft'
 

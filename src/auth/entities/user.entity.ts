@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
 import { Enrollment } from '../../courses/entities/enrollment.entity';
 
 @Entity('users')
@@ -9,6 +9,7 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Index()
   @Column()
   name: string;
 
@@ -18,6 +19,7 @@ export class User {
   @Column({ unique: true })
   userId: string; // e.g. 'TX-0001'
 
+  @Index()
   @Column({ default: 'user' })
   role: string; // 'user' | 'employee' | 'admin'
 

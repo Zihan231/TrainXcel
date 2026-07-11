@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from 'typeorm';
 import { Course } from './course.entity';
 
 @Entity('lessons')
@@ -6,6 +6,7 @@ export class Lesson {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Index()
   @Column()
   title: string;
 
