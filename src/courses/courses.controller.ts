@@ -86,8 +86,15 @@ export class CoursesController {
   async getCourses(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 6,
+    @Query('categoryId') categoryId?: number,
+    @Query('status') status?: string,
   ) {
-    return this.coursesService.getCoursesPaginated(Number(page), Number(limit));
+    return this.coursesService.getCoursesPaginated(
+      Number(page),
+      Number(limit),
+      categoryId ? Number(categoryId) : undefined,
+      status,
+    );
   }
 
   @Get(':courseId')

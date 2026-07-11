@@ -254,11 +254,25 @@ export class CoursesService implements OnModuleInit {
     });
   }
 
-  async getCoursesPaginated(page: number = 1, limit: number = 6): Promise<{ data: any[]; meta: any }> {
+  async getCoursesPaginated(
+    page: number = 1,
+    limit: number = 6,
+    categoryId?: number,
+    status?: string,
+  ): Promise<{ data: any[]; meta: any }> {
     const skippedItems = (page - 1) * limit;
+
+    const where: any = {};
+    if (categoryId) {
+      where.category = { id: categoryId };
+    }
+    if (status) {
+      where.status = status;
+    }
 
     const [courses, total] = await Promise.all([
       this.courseRepository.find({
+        where,
         skip: skippedItems,
         take: limit,
         relations: {
@@ -283,7 +297,7 @@ export class CoursesService implements OnModuleInit {
           id: 'ASC',
         },
       }),
-      this.courseRepository.count(),
+      this.courseRepository.count({ where }),
     ]);
 
     const data = courses.map((course) => {
