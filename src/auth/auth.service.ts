@@ -182,4 +182,33 @@ export class AuthService implements OnModuleInit {
     const users = await this.userRepository.find();
     return users.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
   }
+
+  async getUsersPaginated(page: number = 1, limit: number = 10): Promise<{ data: Omit<User, 'password'>[]; meta: any }> {
+    const skippedItems = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      this.userRepository.find({
+        skip: skippedItems,
+        take: limit,
+        order: {
+          id: 'ASC',
+        },
+      }),
+      this.userRepository.count(),
+    ]);
+
+    const data = users.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems: total,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
 }

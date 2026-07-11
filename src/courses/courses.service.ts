@@ -254,6 +254,44 @@ export class CoursesService implements OnModuleInit {
     });
   }
 
+  async getCoursesPaginated(page: number = 1, limit: number = 6): Promise<{ data: Course[]; meta: any }> {
+    const skippedItems = (page - 1) * limit;
+
+    const [courses, total] = await Promise.all([
+      this.courseRepository.find({
+        skip: skippedItems,
+        take: limit,
+        relations: {
+          category: true,
+          lessons: true,
+          enrollments: true,
+        },
+        order: {
+          id: 'ASC',
+        },
+      }),
+      this.courseRepository.count(),
+    ]);
+
+    const data = courses.map((course) => {
+      course.completionRate = this.calculateOverallCompletionRate(course);
+      return course;
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems: total,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
+
   async getCourseById(courseId: string): Promise<Course> {
     const course = await this.courseRepository.findOne({
       where: { courseId },

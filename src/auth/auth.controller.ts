@@ -58,8 +58,11 @@ export class AuthController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard)
-  async getUsers() {
-    return this.authService.getAllUsers();
+  async getUsers(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.authService.getUsersPaginated(Number(page), Number(limit));
   }
 
   @Get('users/search')
