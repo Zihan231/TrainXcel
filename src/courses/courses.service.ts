@@ -259,15 +259,33 @@ export class CoursesService implements OnModuleInit {
     limit: number = 6,
     categoryId?: number,
     status?: string,
+    q?: string,
   ): Promise<{ data: any[]; meta: any }> {
     const skippedItems = (page - 1) * limit;
 
-    const where: any = {};
-    if (categoryId) {
-      where.category = { id: categoryId };
-    }
-    if (status) {
-      where.status = status;
+    let where: any;
+    if (q) {
+      // Search matches name OR courseId, combined with category and status filters
+      where = [
+        {
+          name: ILike(`%${q}%`),
+          ...(categoryId ? { category: { id: categoryId } } : {}),
+          ...(status ? { status } : {}),
+        },
+        {
+          courseId: ILike(`%${q}%`),
+          ...(categoryId ? { category: { id: categoryId } } : {}),
+          ...(status ? { status } : {}),
+        },
+      ];
+    } else {
+      where = {};
+      if (categoryId) {
+        where.category = { id: categoryId };
+      }
+      if (status) {
+        where.status = status;
+      }
     }
 
     const [courses, total] = await Promise.all([

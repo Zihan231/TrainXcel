@@ -88,12 +88,14 @@ export class CoursesController {
     @Query('limit') limit: number = 6,
     @Query('categoryId') categoryId?: number,
     @Query('status') status?: string,
+    @Query('q') q?: string,
   ) {
     return this.coursesService.getCoursesPaginated(
       Number(page),
       Number(limit),
       categoryId ? Number(categoryId) : undefined,
       status,
+      q,
     );
   }
 
