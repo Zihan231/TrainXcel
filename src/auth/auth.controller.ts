@@ -79,8 +79,12 @@ export class AuthController {
 
   @Patch('users/:userId')
   @UseGuards(JwtAuthGuard)
-  async updateProfile(@Param('userId') userId: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.authService.updateUserDetails(userId, updateUserDto);
+  async updateProfile(
+    @Param('userId') userId: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @Req() req: any,
+  ) {
+    return this.authService.updateUserDetails(userId, updateUserDto, req.user.userId);
   }
 
   @Patch('users/:userId/role')

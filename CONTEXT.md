@@ -1,4 +1,4 @@
-﻿# TrainXcel Backend — Full Project Context
+# TrainXcel Backend — Full Project Context
 
 > **Last Updated:** 2026-07-11
 > **Repository:** https://github.com/Zihan231/TrainXcel
@@ -139,7 +139,7 @@ JwtAuthGuard used on protected routes — reads cookie automatically.
 | GET    | /auth/users                | Yes  | List users — paginated (10/page)        |
 | GET    | /auth/users/search         | Yes  | Search users by name/email/userId       |
 | GET    | /auth/profile/:userId      | Yes  | Get any user profile by userId          |
-| PATCH  | /auth/users/:userId        | Yes  | Update user profile details             |
+| PATCH  | /auth/users/:userId        | Yes  | Update own profile (requester ID must match, admin can bypass) |
 | PATCH  | /auth/users/:userId/role   | Yes  | Update user role (admin only)           |
 
 ### User Roles
@@ -459,3 +459,4 @@ Frontend project: c:\XR Interactive\trainxcel-frontend
 | 20 | GET /courses/:courseId/lessons — optimized lesson list          |
 | 21 | User role update endpoint PATCH /auth/users/:userId/role        |
 | 22 | Unified search optimized — no over-fetching, totalLessons count |
+| 23 | Security: PATCH /auth/users/:userId checks requester ID matches URL userId (admin bypass) |

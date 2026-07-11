@@ -145,7 +145,15 @@ export class AuthService implements OnModuleInit {
     return result;
   }
 
-  async updateUserDetails(userId: string, updateUserDto: UpdateUserDto): Promise<Omit<User, 'password'>> {
+  async updateUserDetails(userId: string, updateUserDto: UpdateUserDto, requesterId: string): Promise<Omit<User, 'password'>> {
+    // Verify identity: only the user themselves or an admin can update the profile
+    if (requesterId !== userId) {
+      const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+      if (!requester || requester.role !== 'admin') {
+        throw new ForbiddenException('You can only update your own profile');
+      }
+    }
+
     const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
