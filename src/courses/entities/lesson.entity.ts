@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index, DeleteDateColumn } from 'typeorm';
 import { Course } from './course.entity';
 
 @Entity('lessons')
@@ -27,4 +27,7 @@ export class Lesson {
 
   @ManyToOne(() => Course, (course) => course.lessons, { onDelete: 'CASCADE' })
   course: Course;
+
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 }

@@ -99,6 +99,23 @@ export class CoursesController {
     );
   }
 
+  @Get('trash')
+  @UseGuards(JwtAuthGuard)
+  async getTrash(
+    @Req() req: any,
+    @Query('q') q?: string,
+    @Query('type') type?: 'course' | 'lesson',
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+  ) {
+    return this.coursesService.getTrashItems(req.user.userId, q, type, sortOrder || 'DESC');
+  }
+
+  @Delete('trash/empty')
+  @UseGuards(JwtAuthGuard)
+  async emptyRecycleBin(@Req() req: any) {
+    return this.coursesService.emptyRecycleBin(req.user.userId);
+  }
+
   @Get(':courseId')
   async getCourse(@Param('courseId') courseId: string) {
     return this.coursesService.getCourseById(courseId);
@@ -131,10 +148,22 @@ export class CoursesController {
     return this.coursesService.updateCourseStatus(courseId, status, req.user.userId);
   }
 
+  @Patch(':courseId/restore')
+  @UseGuards(JwtAuthGuard)
+  async restoreCourse(@Param('courseId') courseId: string, @Req() req: any) {
+    return this.coursesService.restoreCourse(courseId, req.user.userId);
+  }
+
   @Delete(':courseId')
   @UseGuards(JwtAuthGuard)
   async deleteCourse(@Param('courseId') courseId: string, @Req() req: any) {
     return this.coursesService.deleteCourse(courseId, req.user.userId);
+  }
+
+  @Delete(':courseId/permanent')
+  @UseGuards(JwtAuthGuard)
+  async hardDeleteCourse(@Param('courseId') courseId: string, @Req() req: any) {
+    return this.coursesService.hardDeleteCourse(courseId, req.user.userId);
   }
 
   // --- Lessons ---
@@ -165,6 +194,16 @@ export class CoursesController {
     return this.coursesService.updateLesson(courseId, lessonId, updateLessonDto, req.user.userId);
   }
 
+  @Patch(':courseId/lessons/:lessonId/restore')
+  @UseGuards(JwtAuthGuard)
+  async restoreLesson(
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Req() req: any,
+  ) {
+    return this.coursesService.restoreLesson(courseId, lessonId, req.user.userId);
+  }
+
   @Delete(':courseId/lessons/:lessonId')
   @UseGuards(JwtAuthGuard)
   async deleteLesson(
@@ -173,6 +212,16 @@ export class CoursesController {
     @Req() req: any,
   ) {
     return this.coursesService.deleteLesson(courseId, lessonId, req.user.userId);
+  }
+
+  @Delete(':courseId/lessons/:lessonId/permanent')
+  @UseGuards(JwtAuthGuard)
+  async hardDeleteLesson(
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Req() req: any,
+  ) {
+    return this.coursesService.hardDeleteLesson(courseId, lessonId, req.user.userId);
   }
 
   // --- Enrollment & Progress ---

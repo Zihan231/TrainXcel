@@ -452,8 +452,50 @@ export class CoursesService implements OnModuleInit {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
-    await this.courseRepository.remove(course);
-    return { message: 'Course successfully deleted' };
+    await this.courseRepository.softRemove(course);
+    return { message: 'Course successfully moved to recycle bin' };
+  }
+
+  async restoreCourse(courseId: string, requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can restore courses');
+    }
+
+    const course = await this.courseRepository.findOne({
+      where: { courseId },
+      withDeleted: true,
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    await this.courseRepository.restore(course.id);
+    return { message: 'Course successfully restored' };
+  }
+
+  async hardDeleteCourse(courseId: string, requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can permanently delete courses');
+    }
+
+    const course = await this.courseRepository.findOne({
+      where: { courseId },
+      withDeleted: true,
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    await this.courseRepository.delete(course.id);
+    return { message: 'Course permanently deleted' };
   }
 
   // --- Lesson Logic ---
@@ -594,8 +636,109 @@ export class CoursesService implements OnModuleInit {
       }
     }
 
-    await this.lessonRepository.remove(lesson);
-    return { message: 'Lesson successfully deleted' };
+    await this.lessonRepository.softRemove(lesson);
+    return { message: 'Lesson successfully moved to recycle bin' };
+  }
+
+  async restoreLesson(courseId: string, lessonId: string, requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can restore lessons');
+    }
+
+    const course = await this.courseRepository.findOne({
+      where: { courseId },
+      relations: {
+        lessons: true,
+        enrollments: {
+          completedLessons: true,
+        },
+      },
+      withDeleted: true,
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    const lesson = await this.lessonRepository.findOne({
+      where: { lessonId, course: { id: course.id } },
+      withDeleted: true,
+    });
+    if (!lesson) {
+      throw new NotFoundException(`Lesson ${lessonId} belonging to course ${courseId} not found`);
+    }
+
+    await this.lessonRepository.restore(lesson.id);
+
+    const activeLessons = await this.lessonRepository.count({ where: { course: { id: course.id } } });
+    if (course.enrollments && course.enrollments.length > 0) {
+      for (const enrollment of course.enrollments) {
+        const completedCount = enrollment.completedLessons.length;
+        enrollment.progress = Math.round((completedCount / activeLessons) * 100 * 100) / 100;
+        await this.enrollmentRepository.save(enrollment);
+      }
+    }
+
+    return { message: 'Lesson successfully restored' };
+  }
+
+  async hardDeleteLesson(courseId: string, lessonId: string, requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can permanently delete lessons');
+    }
+
+    const course = await this.courseRepository.findOne({
+      where: { courseId },
+      relations: {
+        lessons: true,
+        enrollments: {
+          completedLessons: true,
+        },
+      },
+      withDeleted: true,
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    const lesson = await this.lessonRepository.findOne({
+      where: { lessonId, course: { id: course.id } },
+      withDeleted: true,
+    });
+    if (!lesson) {
+      throw new NotFoundException(`Lesson ${lessonId} belonging to course ${courseId} not found`);
+    }
+
+    const isAlreadySoftDeleted = lesson.deletedAt !== null;
+    if (!isAlreadySoftDeleted) {
+      const remainingLessonsCount = course.lessons.length - 1;
+      if (course.enrollments && course.enrollments.length > 0) {
+        for (const enrollment of course.enrollments) {
+          const hadCompleted = enrollment.completedLessons.some((cl) => cl.id === lesson.id);
+          if (hadCompleted) {
+            enrollment.completedLessons = enrollment.completedLessons.filter((cl) => cl.id !== lesson.id);
+          }
+
+          const completedCount = enrollment.completedLessons.length;
+          if (remainingLessonsCount > 0) {
+            enrollment.progress = Math.round((completedCount / remainingLessonsCount) * 100 * 100) / 100;
+          } else {
+            enrollment.progress = 0;
+          }
+          await this.enrollmentRepository.save(enrollment);
+        }
+      }
+    }
+
+    await this.lessonRepository.delete(lesson.id);
+    return { message: 'Lesson permanently deleted' };
   }
 
   // --- Enrollment & Progress Logic ---
@@ -1032,5 +1175,112 @@ export class CoursesService implements OnModuleInit {
       courseName: e.course.name,
       message: `${e.user.name} enrolled in ${e.course.name}`,
     }));
+  }
+
+  async getTrashItems(
+    requesterId: string,
+    q?: string,
+    type?: 'course' | 'lesson',
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+  ): Promise<any[]> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can view recycle bin');
+    }
+
+    const trashItems: any[] = [];
+
+    // 1. Fetch soft-deleted courses if type matches
+    if (!type || type === 'course') {
+      const coursesQuery = this.courseRepository.createQueryBuilder('course')
+        .withDeleted()
+        .where('course.deletedAt IS NOT NULL')
+        .leftJoinAndSelect('course.category', 'category');
+
+      if (q) {
+        coursesQuery.andWhere(
+          '(course.name ILike :q OR course.courseId ILike :q)',
+          { q: `%${q}%` }
+        );
+      }
+
+      const courses = await coursesQuery.getMany();
+      courses.forEach(c => {
+        trashItems.push({
+          id: c.courseId,
+          dbId: c.id,
+          type: 'course',
+          name: c.name,
+          deletedAt: c.deletedAt,
+          category: c.category ? c.category.name : null,
+        });
+      });
+    }
+
+    // 2. Fetch soft-deleted lessons if type matches
+    if (!type || type === 'lesson') {
+      const lessonsQuery = this.lessonRepository.createQueryBuilder('lesson')
+        .withDeleted()
+        .where('lesson.deletedAt IS NOT NULL')
+        .leftJoinAndSelect('lesson.course', 'course');
+
+      if (q) {
+        lessonsQuery.andWhere(
+          '(lesson.title ILike :q OR lesson.lessonId ILike :q)',
+          { q: `%${q}%` }
+        );
+      }
+
+      const lessons = await lessonsQuery.getMany();
+      lessons.forEach(l => {
+        trashItems.push({
+          id: l.lessonId,
+          dbId: l.id,
+          type: 'lesson',
+          name: l.title,
+          deletedAt: l.deletedAt,
+          courseId: l.course ? l.course.courseId : null,
+          courseName: l.course ? l.course.name : null,
+        });
+      });
+    }
+
+    // Sort combined items by deletedAt
+    trashItems.sort((a, b) => {
+      const dateA = new Date(a.deletedAt).getTime();
+      const dateB = new Date(b.deletedAt).getTime();
+      return sortOrder === 'DESC' ? dateB - dateA : dateA - dateB;
+    });
+
+    return trashItems;
+  }
+
+  async emptyRecycleBin(requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can empty the recycle bin');
+    }
+
+    // Hard-delete all soft-deleted lessons
+    await this.lessonRepository.createQueryBuilder()
+      .delete()
+      .from(Lesson)
+      .where('deletedAt IS NOT NULL')
+      .execute();
+
+    // Hard-delete all soft-deleted courses
+    await this.courseRepository.createQueryBuilder()
+      .delete()
+      .from(Course)
+      .where('deletedAt IS NOT NULL')
+      .execute();
+
+    return { message: 'Recycle bin successfully emptied' };
   }
 }

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 import { Category } from './category.entity';
 import { Lesson } from './lesson.entity';
 import { Enrollment } from './enrollment.entity';
@@ -36,6 +36,9 @@ export class Course {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 
   // This will be populated dynamically by the service
   completionRate?: number;

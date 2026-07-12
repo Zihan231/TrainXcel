@@ -9,6 +9,7 @@ import { Enrollment } from './entities/enrollment.entity';
 import { User } from '../auth/entities/user.entity';
 import { CoursesService } from './courses.service';
 import { CoursesController } from './courses.controller';
+import { TrashCleanupService } from './trash-cleanup.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { CoursesController } from './courses.controller';
     ConfigModule,
   ],
   controllers: [CoursesController],
-  providers: [CoursesService],
+  providers: [CoursesService, TrashCleanupService],
   exports: [CoursesService],
 })
 export class CoursesModule {}
