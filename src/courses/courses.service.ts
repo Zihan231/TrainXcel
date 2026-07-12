@@ -345,6 +345,7 @@ export class CoursesService implements OnModuleInit {
   async getCourseById(courseId: string): Promise<Course> {
     const course = await this.courseRepository.findOne({
       where: { courseId },
+      withDeleted: true,
       relations: {
         category: true,
         lessons: true,
@@ -499,14 +500,33 @@ export class CoursesService implements OnModuleInit {
   }
 
   // --- Lesson Logic ---
+  async getLessonById(courseId: string, lessonId: string): Promise<Lesson> {
+    const course = await this.courseRepository.findOne({ where: { courseId }, withDeleted: true });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    const lesson = await this.lessonRepository.findOne({
+      where: { lessonId, course: { id: course.id } },
+      withDeleted: true, // Allow fetching if it's soft-deleted
+    });
+
+    if (!lesson) {
+      throw new NotFoundException(`Lesson with ID ${lessonId} not found in course ${courseId}`);
+    }
+
+    return lesson;
+  }
+
   async getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
-    const course = await this.courseRepository.findOne({ where: { courseId } });
+    const course = await this.courseRepository.findOne({ where: { courseId }, withDeleted: true });
     if (!course) {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
     return this.lessonRepository.find({
       where: { course: { id: course.id } },
+      withDeleted: true,
       select: {
         id: true,
         lessonId: true,
@@ -515,6 +535,7 @@ export class CoursesService implements OnModuleInit {
         materialType: true,
         materialLink: true,
         status: true,
+        deletedAt: true,
       },
       order: {
         id: 'ASC',

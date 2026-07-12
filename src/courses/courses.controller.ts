@@ -167,6 +167,14 @@ export class CoursesController {
   }
 
   // --- Lessons ---
+  @Get(':courseId/lessons/:lessonId')
+  async getLesson(
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+  ) {
+    return this.coursesService.getLessonById(courseId, lessonId);
+  }
+
   @Get(':courseId/lessons')
   async getLessons(@Param('courseId') courseId: string) {
     return this.coursesService.getLessonsByCourseId(courseId);
