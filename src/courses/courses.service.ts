@@ -1199,6 +1199,7 @@ export class CoursesService implements OnModuleInit {
       courseId: e.course.courseId,
       courseName: e.course.name,
       message: `${e.user.name} enrolled in ${e.course.name}`,
+      timestamp: e.createdAt,
     }));
   }
 
