@@ -168,6 +168,7 @@ export class CoursesController {
 
   // --- Lessons ---
   @Get(':courseId/lessons/:lessonId')
+  @UseGuards(JwtAuthGuard)
   async getLesson(
     @Param('courseId') courseId: string,
     @Param('lessonId') lessonId: string,
