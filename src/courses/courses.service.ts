@@ -36,6 +36,7 @@ export class CoursesService implements OnModuleInit {
   private async generateNextCourseId(): Promise<string> {
     const lastCourse = await this.courseRepository.findOne({
       where: {},
+      withDeleted: true,
       order: { id: 'DESC' },
     });
     if (!lastCourse) {
@@ -49,6 +50,7 @@ export class CoursesService implements OnModuleInit {
   private async generateNextLessonId(): Promise<string> {
     const lastLesson = await this.lessonRepository.findOne({
       where: {},
+      withDeleted: true,
       order: { id: 'DESC' },
     });
     if (!lastLesson) {
