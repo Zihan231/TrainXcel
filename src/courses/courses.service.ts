@@ -1211,6 +1211,7 @@ export class CoursesService implements OnModuleInit {
       courses.forEach(c => {
         trashItems.push({
           id: c.courseId,
+          courseId: c.courseId, // Added for frontend compatibility
           dbId: c.id,
           type: 'course',
           name: c.name,
@@ -1238,6 +1239,7 @@ export class CoursesService implements OnModuleInit {
       lessons.forEach(l => {
         trashItems.push({
           id: l.lessonId,
+          lessonId: l.lessonId, // Added for frontend compatibility
           dbId: l.id,
           type: 'lesson',
           name: l.title,
