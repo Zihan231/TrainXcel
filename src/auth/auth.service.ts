@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, ConflictException, UnauthorizedException, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
@@ -10,7 +10,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -23,9 +23,7 @@ export class AuthService implements OnModuleInit {
     return this.jwtService.sign({ userId, role });
   }
 
-  async onModuleInit() {
-    await this.seedDemoUsers();
-  }
+
 
   private async generateNextUserId(): Promise<string> {
     const lastUser = await this.userRepository.findOne({
@@ -40,54 +38,6 @@ export class AuthService implements OnModuleInit {
     return `TX-${String(nextNum).padStart(4, '0')}`;
   }
 
-  private async seedDemoUsers() {
-    const userCount = await this.userRepository.count();
-    if (userCount === 0) {
-      this.logger.log('No users found. Seeding demo users...');
-      
-      const defaultPassword = 'password123';
-      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-
-      const demoUsers = [
-        {
-          userId: 'TX-0001',
-          email: 'user@example.com',
-          name: 'Regular User',
-          password: hashedPassword,
-          role: 'user',
-          phoneNumber: '1234567890',
-          address: '123 Main St, Springfield',
-        },
-        {
-          userId: 'TX-0002',
-          email: 'employee@example.com',
-          name: 'Employee User',
-          password: hashedPassword,
-          role: 'employee',
-          phoneNumber: '0987654321',
-          address: '456 Tech Park, Redmond',
-        },
-        {
-          userId: 'TX-0003',
-          email: 'admin@example.com',
-          name: 'Admin User',
-          password: hashedPassword,
-          role: 'admin',
-          phoneNumber: '5551234567',
-          address: '789 Executive Blvd, Cupertino',
-        },
-      ];
-
-      for (const userData of demoUsers) {
-        const user = this.userRepository.create(userData);
-        await this.userRepository.save(user);
-        this.logger.log(`Seeded user: ${user.email} (UserId: ${user.userId}, Role: ${user.role})`);
-      }
-      this.logger.log('Demo users seeding completed successfully!');
-    } else {
-      this.logger.log('Database already has users. Skipping demo users seeding.');
-    }
-  }
 
   async register(registerDto: RegisterDto): Promise<{ user: Omit<User, 'password'>; token: string }> {
     const existingUser = await this.userRepository.findOne({ where: { email: registerDto.email } });

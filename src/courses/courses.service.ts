@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, LessThan, MoreThanOrEqual, ILike } from 'typeorm';
 import { Course } from './entities/course.entity';
@@ -13,7 +13,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
 
 @Injectable()
-export class CoursesService implements OnModuleInit {
+export class CoursesService {
   private readonly logger = new Logger(CoursesService.name);
 
   constructor(
@@ -29,9 +29,7 @@ export class CoursesService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async onModuleInit() {
-    await this.seedMockData();
-  }
+
 
   private async generateNextCourseId(): Promise<string> {
     const lastCourse = await this.courseRepository.findOne({
@@ -61,162 +59,7 @@ export class CoursesService implements OnModuleInit {
     return `LES-${String(nextNum).padStart(4, '0')}`;
   }
 
-  private async seedMockData() {
-    // Clean up old mock data format or incomplete mock datasets
-    const oldCourse = await this.courseRepository.findOne({ where: { courseId: 'TS-101' } as any });
-    const courseCountBefore = await this.courseRepository.count();
-    const hasFebSeed = await this.enrollmentRepository.findOne({
-      where: {
-        createdAt: new Date('2026-02-15T12:00:00Z'),
-      },
-    });
 
-    if (oldCourse || (courseCountBefore > 0 && courseCountBefore < 4) || !hasFebSeed) {
-      this.logger.log('Old or incomplete mock data found. Wiping database tables for re-seeding...');
-      // Truncate categories and cascade down the foreign key chain to clear courses, lessons, and enrollments
-      await this.categoryRepository.query('TRUNCATE TABLE "categories" CASCADE;');
-      this.logger.log('Old mock data wiped.');
-    }
-
-    // 1. Seed Categories
-    const categoryCount = await this.categoryRepository.count();
-    if (categoryCount === 0) {
-      this.logger.log('No categories found. Seeding categories...');
-      const devCategory = this.categoryRepository.create({ name: 'Development' });
-      const designCategory = this.categoryRepository.create({ name: 'Design' });
-      const businessCategory = this.categoryRepository.create({ name: 'Business' });
-      await this.categoryRepository.save([devCategory, designCategory, businessCategory]);
-      this.logger.log('Categories seeded.');
-    }
-
-    // 2. Seed Courses & Lessons
-    const courseCount = await this.courseRepository.count();
-    if (courseCount === 0) {
-      this.logger.log('No courses found. Seeding courses and lessons...');
-      const devCategory = await this.categoryRepository.findOne({ where: { name: 'Development' } });
-      const designCategory = await this.categoryRepository.findOne({ where: { name: 'Design' } });
-      const businessCategory = await this.categoryRepository.findOne({ where: { name: 'Business' } });
-
-      // Course 1: Development
-      const course1 = this.courseRepository.create({
-        name: 'Introduction to TypeScript',
-        courseId: 'CRS-0001',
-        status: 'active',
-        category: devCategory,
-        enrolled: 2,
-      });
-      const savedCourse1 = await this.courseRepository.save(course1);
-
-      const lesson1_1 = this.lessonRepository.create({ title: 'Basic Types', lessonId: 'LES-0001', description: 'Learn string, number, array and tuple.', materialType: 'Video', materialLink: 'https://example.com/ts-basics.mp4', status: 'Active', course: savedCourse1 });
-      const lesson1_2 = this.lessonRepository.create({ title: 'Interfaces and Types', lessonId: 'LES-0002', description: 'Defining custom structures.', materialType: 'PDF', materialLink: 'https://example.com/ts-interfaces.pdf', status: 'Active', course: savedCourse1 });
-      const lesson1_3 = this.lessonRepository.create({ title: 'Generics', lessonId: 'LES-0003', description: 'Reusable component definitions.', materialType: 'PPT', materialLink: 'https://example.com/ts-generics.ppt', status: 'Active', course: savedCourse1 });
-      const lesson1_4 = this.lessonRepository.create({ title: 'Decorators', lessonId: 'LES-0004', description: 'Annotations and meta-programming.', materialType: 'Video', materialLink: 'https://example.com/ts-decorators.mp4', status: 'Active', course: savedCourse1 });
-      await this.lessonRepository.save([lesson1_1, lesson1_2, lesson1_3, lesson1_4]);
-
-      // Course 2: Design
-      const course2 = this.courseRepository.create({
-        name: 'Advanced UI/UX Design',
-        courseId: 'CRS-0002',
-        status: 'active',
-        category: designCategory,
-        enrolled: 1,
-      });
-      const savedCourse2 = await this.courseRepository.save(course2);
-
-      const lesson2_1 = this.lessonRepository.create({ title: 'Figma Auto-Layout Masterclass', lessonId: 'LES-0005', description: 'Master Auto-Layout 4.0 Components.', materialType: 'Video', materialLink: 'https://example.com/figma-layout.mp4', status: 'Active', course: savedCourse2 });
-      const lesson2_2 = this.lessonRepository.create({ title: 'Design Systems in Figma', lessonId: 'LES-0006', description: 'Variables and design systems.', materialType: 'PDF', materialLink: 'https://example.com/design-systems.pdf', status: 'Active', course: savedCourse2 });
-      const lesson2_3 = this.lessonRepository.create({ title: 'Prototyping Transitions', lessonId: 'LES-0007', description: 'Smart animate transitions.', materialType: 'Video', materialLink: 'https://example.com/prototyping.mp4', status: 'Active', course: savedCourse2 });
-      await this.lessonRepository.save([lesson2_1, lesson2_2, lesson2_3]);
-
-      // Course 3: Business
-      const course3 = this.courseRepository.create({
-        name: 'Product Management Essentials',
-        courseId: 'CRS-0003',
-        status: 'active',
-        category: businessCategory,
-        enrolled: 1,
-      });
-      const savedCourse3 = await this.courseRepository.save(course3);
-
-      const lesson3_1 = this.lessonRepository.create({ title: 'Product Lifecycle', lessonId: 'LES-0008', description: 'Product lifecycle stages.', materialType: 'Video', materialLink: 'https://example.com/lifecycle.mp4', status: 'Active', course: savedCourse3 });
-      const lesson3_2 = this.lessonRepository.create({ title: 'Agile and Scrum Basics', lessonId: 'LES-0009', description: 'Scrum frameworks & sprints.', materialType: 'PDF', materialLink: 'https://example.com/agile.pdf', status: 'Active', course: savedCourse3 });
-      const lesson3_3 = this.lessonRepository.create({ title: 'KPIs and Metrics', lessonId: 'LES-0010', description: 'Tracking product success metrics.', materialType: 'PPT', materialLink: 'https://example.com/kpi.ppt', status: 'Active', course: savedCourse3 });
-      await this.lessonRepository.save([lesson3_1, lesson3_2, lesson3_3]);
-
-      // Course 4: Development (Next.js)
-      const course4 = this.courseRepository.create({
-        name: 'Next.js Core Concepts',
-        courseId: 'CRS-0004',
-        status: 'active',
-        category: devCategory,
-        enrolled: 1,
-      });
-      const savedCourse4 = await this.courseRepository.save(course4);
-
-      const lesson4_1 = this.lessonRepository.create({ title: 'Server vs Client Components', lessonId: 'LES-0011', description: 'React Server Components (RSC).', materialType: 'Video', materialLink: 'https://example.com/rsc.mp4', status: 'Active', course: savedCourse4 });
-      const lesson4_2 = this.lessonRepository.create({ title: 'Routing & Layouts', lessonId: 'LES-0012', description: 'Next.js App Router layout structure.', materialType: 'PDF', materialLink: 'https://example.com/routing.pdf', status: 'Active', course: savedCourse4 });
-      const lesson4_3 = this.lessonRepository.create({ title: 'Data Fetching & Caching', lessonId: 'LES-0013', description: 'Caching strategy and revalidation.', materialType: 'Video', materialLink: 'https://example.com/fetching.mp4', status: 'Active', course: savedCourse4 });
-      await this.lessonRepository.save([lesson4_1, lesson4_2, lesson4_3]);
-
-      this.logger.log('Courses and lessons seeded.');
-
-      // 3. Seed Enrollments and Progress
-      const defaultUser = await this.userRepository.findOne({ where: { userId: 'TX-0001' } });
-      const employeeUser = await this.userRepository.findOne({ where: { userId: 'TX-0002' } });
-
-      if (defaultUser) {
-        // user@example.com progress
-        const enr1 = this.enrollmentRepository.create({
-          user: defaultUser,
-          course: savedCourse1,
-          completedLessons: [lesson1_1, lesson1_2], // 2 of 4 completed
-          progress: 50.0,
-          createdAt: new Date('2026-02-15T12:00:00Z'),
-        });
-
-        const enr2 = this.enrollmentRepository.create({
-          user: defaultUser,
-          course: savedCourse2,
-          completedLessons: [lesson2_1, lesson2_2, lesson2_3], // 3 of 3 completed
-          progress: 100.0,
-          createdAt: new Date('2026-03-20T12:00:00Z'),
-        });
-
-        const enr3 = this.enrollmentRepository.create({
-          user: defaultUser,
-          course: savedCourse4,
-          completedLessons: [lesson4_1], // 1 of 3 completed
-          progress: 33.33,
-          createdAt: new Date('2026-04-10T12:00:00Z'),
-        });
-
-        await this.enrollmentRepository.save([enr1, enr2, enr3]);
-      }
-
-      if (employeeUser) {
-        // employee@example.com progress
-        const enr4 = this.enrollmentRepository.create({
-          user: employeeUser,
-          course: savedCourse1,
-          completedLessons: [lesson1_1, lesson1_2, lesson1_3, lesson1_4], // 4 of 4 completed
-          progress: 100.0,
-          createdAt: new Date('2026-05-05T12:00:00Z'),
-        });
-
-        const enr5 = this.enrollmentRepository.create({
-          user: employeeUser,
-          course: savedCourse3,
-          completedLessons: [lesson3_1], // 1 of 3 completed
-          progress: 33.33,
-          createdAt: new Date('2026-06-18T12:00:00Z'),
-        });
-
-        await this.enrollmentRepository.save([enr4, enr5]);
-      }
-
-      this.logger.log('Enrollments and user progress rates seeded.');
-    }
-  }
 
   // --- Category Logic ---
   async getAllCategories(): Promise<Category[]> {
