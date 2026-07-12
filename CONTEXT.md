@@ -132,12 +132,13 @@ JwtAuthGuard used on protected routes — reads cookie automatically.
 
 | Method | Endpoint                   | Auth | Description                              |
 |--------|----------------------------|------|------------------------------------------|
-| POST   | /auth/register             | No   | Register new user, returns JWT cookie    |
+| POST   | /auth/register             | No   | Register new user (forces default 'user' role), returns JWT cookie |
 | POST   | /auth/login                | No   | Login, returns JWT cookie               |
 | POST   | /auth/logout               | No   | Clears JWT cookie                       |
 | GET    | /auth/profile              | Yes  | Get own profile (from JWT token)        |
 | GET    | /auth/users                | Yes  | List users — paginated (10/page)        |
 | GET    | /auth/users/search         | Yes  | Search users by name/email/userId       |
+| POST   | /auth/users/employee       | Yes  | Create employee user directly (admin only) |
 | GET    | /auth/profile/:userId      | Yes  | Get any user profile by userId          |
 | PATCH  | /auth/users/:userId        | Yes  | Update own profile (requester ID must match, admin can bypass) |
 | PATCH  | /auth/users/:userId/role   | Yes  | Update user role (admin only)           |
@@ -173,11 +174,12 @@ UpdateLessonDto) have had userId removed entirely. The client CANNOT send userId
 
 | Method | Endpoint                        | Auth | Description                              |
 |--------|---------------------------------|------|------------------------------------------|
-| GET    | /courses                        | No   | List courses — paginated + filtered      |
+| GET    | /courses                        | No   | List courses — paginated + filtered (sorted by recent first) |
 | GET    | /courses/:courseId              | No   | Get single course with full details      |
 | POST   | /courses                        | Yes  | Create a course (admin/employee only)    |
 | PATCH  | /courses/:courseId              | Yes  | Update course details                    |
 | PATCH  | /courses/:courseId/status       | Yes  | Update course status only                |
+| DELETE | /courses/:courseId              | Yes  | Delete a course (admin/employee only)    |
 
 ### Category Endpoints
 
@@ -193,6 +195,7 @@ UpdateLessonDto) have had userId removed entirely. The client CANNOT send userId
 | GET    | /courses/:courseId/lessons             | No   | List all lessons for a course   |
 | POST   | /courses/:courseId/lessons             | Yes  | Add lesson to a course          |
 | PATCH  | /courses/:courseId/lessons/:lessonId   | Yes  | Update a lesson                 |
+| DELETE | /courses/:courseId/lessons/:lessonId   | Yes  | Delete a lesson (admin/employee only) |
 
 ### Enrollment & Progress Endpoints
 
@@ -479,3 +482,7 @@ Frontend project: c:\XR Interactive\trainxcel-frontend
 | 22 | Unified search optimized — no over-fetching, totalLessons count |
 | 23 | Security: PATCH /auth/users/:userId checks requester ID matches URL userId (admin bypass) |
 | 24 | Security: Removed userId from all DTOs. Role re-verified from DB via requesterId param in all privileged service methods |
+| 25 | Feature: Added DELETE course endpoint (admin/employee only)      |
+| 26 | Feature: Added DELETE lesson endpoint with automatic progress recalculation (admin/employee only) |
+| 27 | Security: Public register defaults to 'user' role; added admin-only POST /auth/users/employee |
+| 28 | Feature: Sorted all course list/search endpoints by recent first (createdAt DESC) |

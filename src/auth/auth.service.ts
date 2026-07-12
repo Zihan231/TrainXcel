@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -100,12 +101,41 @@ export class AuthService implements OnModuleInit {
       ...registerDto,
       userId,
       password: hashedPassword,
+      role: 'user', // Hardcode default role to user
     });
 
     const savedUser = await this.userRepository.save(newUser);
     const token = await this.signToken(savedUser.userId, savedUser.role);
     const { password, ...result } = savedUser;
     return { user: result, token };
+  }
+
+  async createEmployee(createEmployeeDto: CreateEmployeeDto, requesterId: string): Promise<Omit<User, 'password'>> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Admin user with ID ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin') {
+      throw new ForbiddenException('Only admin users can add employees');
+    }
+
+    const existingUser = await this.userRepository.findOne({ where: { email: createEmployeeDto.email } });
+    if (existingUser) {
+      throw new ConflictException('Email is already registered');
+    }
+
+    const userId = await this.generateNextUserId();
+    const hashedPassword = await bcrypt.hash(createEmployeeDto.password, 10);
+    const newUser = this.userRepository.create({
+      ...createEmployeeDto,
+      userId,
+      password: hashedPassword,
+      role: 'employee', // Always force employee role
+    });
+
+    const savedUser = await this.userRepository.save(newUser);
+    const { password, ...result } = savedUser;
+    return result;
   }
 
   async login(loginDto: LoginDto): Promise<{ user: Omit<User, 'password'>; token: string }> {

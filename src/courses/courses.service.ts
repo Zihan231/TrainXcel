@@ -312,7 +312,7 @@ export class CoursesService implements OnModuleInit {
           },
         },
         order: {
-          id: 'ASC',
+          createdAt: 'DESC',
         },
       }),
       this.courseRepository.count({ where }),
@@ -436,6 +436,24 @@ export class CoursesService implements OnModuleInit {
     return this.courseRepository.save(course);
   }
 
+  async deleteCourse(courseId: string, requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can delete courses');
+    }
+
+    const course = await this.courseRepository.findOne({ where: { courseId } });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    await this.courseRepository.remove(course);
+    return { message: 'Course successfully deleted' };
+  }
+
   // --- Lesson Logic ---
   async getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
     const course = await this.courseRepository.findOne({ where: { courseId } });
@@ -525,6 +543,57 @@ export class CoursesService implements OnModuleInit {
 
     Object.assign(lesson, updateLessonDto);
     return this.lessonRepository.save(lesson);
+  }
+
+  async deleteLesson(courseId: string, lessonId: string, requesterId: string): Promise<{ message: string }> {
+    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+    if (!requester) {
+      throw new NotFoundException(`Authenticated user ${requesterId} not found`);
+    }
+    if (requester.role !== 'admin' && requester.role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can delete lessons');
+    }
+
+    const course = await this.courseRepository.findOne({
+      where: { courseId },
+      relations: {
+        lessons: true,
+        enrollments: {
+          completedLessons: true,
+        },
+      },
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    const lesson = await this.lessonRepository.findOne({
+      where: { lessonId, course: { id: course.id } },
+    });
+    if (!lesson) {
+      throw new NotFoundException(`Lesson ${lessonId} belonging to course ${courseId} not found`);
+    }
+
+    const remainingLessonsCount = course.lessons.length - 1;
+    if (course.enrollments && course.enrollments.length > 0) {
+      for (const enrollment of course.enrollments) {
+        const hadCompleted = enrollment.completedLessons.some((cl) => cl.id === lesson.id);
+        if (hadCompleted) {
+          enrollment.completedLessons = enrollment.completedLessons.filter((cl) => cl.id !== lesson.id);
+        }
+
+        const completedCount = enrollment.completedLessons.length;
+        if (remainingLessonsCount > 0) {
+          enrollment.progress = Math.round((completedCount / remainingLessonsCount) * 100 * 100) / 100;
+        } else {
+          enrollment.progress = 0;
+        }
+        await this.enrollmentRepository.save(enrollment);
+      }
+    }
+
+    await this.lessonRepository.remove(lesson);
+    return { message: 'Lesson successfully deleted' };
   }
 
   // --- Enrollment & Progress Logic ---
@@ -679,6 +748,9 @@ export class CoursesService implements OnModuleInit {
           id: true,
         },
       },
+      order: {
+        createdAt: 'DESC',
+      },
     });
 
     const employees = await this.userRepository.find({
@@ -725,6 +797,9 @@ export class CoursesService implements OnModuleInit {
         lessons: {
           id: true,
         },
+      },
+      order: {
+        createdAt: 'DESC',
       },
     });
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -131,6 +131,12 @@ export class CoursesController {
     return this.coursesService.updateCourseStatus(courseId, status, req.user.userId);
   }
 
+  @Delete(':courseId')
+  @UseGuards(JwtAuthGuard)
+  async deleteCourse(@Param('courseId') courseId: string, @Req() req: any) {
+    return this.coursesService.deleteCourse(courseId, req.user.userId);
+  }
+
   // --- Lessons ---
   @Get(':courseId/lessons')
   async getLessons(@Param('courseId') courseId: string) {
@@ -157,6 +163,16 @@ export class CoursesController {
     @Req() req: any,
   ) {
     return this.coursesService.updateLesson(courseId, lessonId, updateLessonDto, req.user.userId);
+  }
+
+  @Delete(':courseId/lessons/:lessonId')
+  @UseGuards(JwtAuthGuard)
+  async deleteLesson(
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Req() req: any,
+  ) {
+    return this.coursesService.deleteLesson(courseId, lessonId, req.user.userId);
   }
 
   // --- Enrollment & Progress ---

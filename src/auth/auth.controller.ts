@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
 import type { Response } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
@@ -69,6 +70,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async searchUsers(@Query('q') q: string) {
     return this.authService.searchUsers(q || '');
+  }
+
+  @Post('users/employee')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  async createEmployee(
+    @Body() createEmployeeDto: CreateEmployeeDto,
+    @Req() req: any,
+  ) {
+    return this.authService.createEmployee(createEmployeeDto, req.user.userId);
   }
 
   @Get('profile/:userId')
