@@ -205,6 +205,19 @@ UpdateLessonDto) have had userId removed entirely. The client CANNOT send userId
 | POST   | /courses/:courseId/lessons/:lessonId/complete   | Yes  | Mark a lesson as complete       |
 | GET    | /courses/:courseId/progress/:userId             | No   | Get user progress on a course   |
 
+### Recycle Bin (Trash) Endpoints
+
+All trash/recycle bin endpoints require roles: `admin` or `employee`.
+
+| Method | Endpoint                                    | Auth | Description                                                |
+|--------|---------------------------------------------|------|------------------------------------------------------------|
+| GET    | /courses/trash                              | Yes  | Search & filter soft-deleted items (courses/lessons)        |
+| DELETE | /courses/trash/empty                        | Yes  | Permanently empty all items from the bin                   |
+| PATCH  | /courses/:courseId/restore                  | Yes  | Restore soft-deleted course                                |
+| PATCH  | /courses/:courseId/lessons/:lessonId/restore| Yes  | Restore soft-deleted lesson                                |
+| DELETE | /courses/:courseId/permanent                | Yes  | Permanently hard-delete course                             |
+| DELETE | /courses/:courseId/lessons/:lessonId/permanent| Yes| Permanently hard-delete lesson                             |
+
 ### Search Endpoints
 
 | Method | Endpoint                  | Auth | Description                                       |
@@ -416,6 +429,7 @@ src/
     +-- courses.controller.ts        All course/lesson/search/stats routes
     +-- courses.service.ts           All business logic
     +-- courses.module.ts
+    +-- trash-cleanup.service.ts     Scheduled deletion service
     +-- entities/
     |   +-- course.entity.ts
     |   +-- lesson.entity.ts
@@ -486,3 +500,4 @@ Frontend project: c:\XR Interactive\trainxcel-frontend
 | 26 | Feature: Added DELETE lesson endpoint with automatic progress recalculation (admin/employee only) |
 | 27 | Security: Public register defaults to 'user' role; added admin-only POST /auth/users/employee |
 | 28 | Feature: Sorted all course list/search endpoints by recent first (createdAt DESC) |
+| 29 | Feature: Soft-delete Recycle Bin with search/filtering, manual restore, direct hard-delete, empty-bin option, and daily background purge scheduled task (tested with 1-min expiration) |
