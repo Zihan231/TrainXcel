@@ -537,6 +537,8 @@ export class CoursesService implements OnModuleInit {
         materialType: true,
         materialLink: true,
         status: true,
+        createdAt: true,
+        updatedAt: true,
         deletedAt: true,
       },
       order: {
