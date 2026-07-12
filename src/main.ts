@@ -1,3 +1,4 @@
+  process.env.TZ = 'UTC'; // Force Node to use UTC so DB timestamps aren't shifted by local timezone
   import { NestFactory } from '@nestjs/core';
   import { AppModule } from './app.module';
   import { ValidationPipe } from '@nestjs/common';
