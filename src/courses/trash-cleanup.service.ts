@@ -16,12 +16,12 @@ export class TrashCleanupService {
     private readonly lessonRepository: Repository<Lesson>,
   ) {}
 
-  // Run every 10 seconds to quickly purge items deleted more than 1 minute ago
-  @Cron('*/10 * * * * *')
+  // Run daily at midnight to purge items deleted more than 30 days ago
+  @Cron('0 0 * * *')
   async purgeExpiredTrash() {
     const cutoffDate = new Date();
-    // Cutoff time is 1 minute (60 seconds)
-    cutoffDate.setSeconds(cutoffDate.getSeconds() - 60);
+    // Cutoff time is 30 days
+    cutoffDate.setDate(cutoffDate.getDate() - 30);
 
     // 1. Purge expired soft-deleted lessons
     const expiredLessons = await this.lessonRepository.find({
