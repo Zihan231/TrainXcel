@@ -11,7 +11,15 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = request.cookies?.jwt;
+    let token = request.cookies?.jwt;
+
+    // Support Authorization Bearer header for easier testing in Postman/mobile apps
+    if (!token) {
+      const authHeader = request.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+      }
+    }
 
     if (!token) {
       throw new UnauthorizedException('Authentication token is missing. Please log in.');
