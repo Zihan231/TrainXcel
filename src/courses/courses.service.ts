@@ -303,6 +303,8 @@ export class CoursesService implements OnModuleInit {
           courseId: true,
           enrolled: true,
           status: true,
+          createdAt: true,
+          updatedAt: true,
           category: {
             id: true,
             name: true,
@@ -740,6 +742,8 @@ export class CoursesService implements OnModuleInit {
         courseId: true,
         enrolled: true,
         status: true,
+        createdAt: true,
+        updatedAt: true,
         category: {
           id: true,
           name: true,
@@ -790,6 +794,8 @@ export class CoursesService implements OnModuleInit {
         courseId: true,
         enrolled: true,
         status: true,
+        createdAt: true,
+        updatedAt: true,
         category: {
           id: true,
           name: true,
