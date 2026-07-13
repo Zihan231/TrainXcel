@@ -394,6 +394,12 @@ export class CoursesService {
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
+        tests: {
+          id: true,
+        },
+      },
+      relations: {
+        tests: true,
       },
       order: {
         id: 'ASC',
@@ -674,10 +680,67 @@ export class CoursesService {
 
     const savedEnrollment = await this.enrollmentRepository.save(enrollment);
 
-    course.enrolled += 1;
+    course.enrolled = (course.enrolled || 0) + 1;
     await this.courseRepository.save(course);
 
     return savedEnrollment;
+  }
+
+  async getMyLearningPaginated(
+    userId: string,
+    page: number = 1,
+    limit: number = 6,
+    status: string = 'all'
+  ) {
+    const skippedItems = (page - 1) * limit;
+
+    const user = await this.userRepository.findOne({ where: { userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    let progressCondition: any = {};
+    if (status === 'completed') {
+      progressCondition = { progress: 100 };
+    } else if (status === 'in-progress') {
+      progressCondition = { progress: LessThan(100) };
+    }
+
+    const [enrollments, total] = await this.enrollmentRepository.findAndCount({
+      where: { user: { id: user.id }, ...progressCondition, course: { status: 'active' } },
+      relations: {
+        course: {
+          category: true,
+          lessons: true,
+        },
+      },
+      skip: skippedItems,
+      take: limit,
+      order: {
+        updatedAt: 'DESC',
+      },
+    });
+
+    const data = enrollments.map(e => {
+      if (!e.course) return null;
+      const { lessons, ...courseData } = e.course;
+      return {
+        ...courseData,
+        totalLessons: lessons ? lessons.length : 0,
+        progress: e.progress,
+      };
+    }).filter(Boolean);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems: total,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
   }
 
   async completeLesson(courseId: string, lessonId: string, userId: string): Promise<Enrollment> {

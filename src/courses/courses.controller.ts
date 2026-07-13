@@ -164,6 +164,18 @@ export class CoursesController {
     return this.coursesService.emptyRecycleBin(req.user.userId);
   }
 
+  @Get('my-learning')
+  @UseGuards(JwtAuthGuard)
+  async getMyLearning(
+    @Req() req: any,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 6,
+    @Query('status') status: string = 'all',
+  ) {
+    const { userId } = req.user;
+    return this.coursesService.getMyLearningPaginated(userId, Number(page), Number(limit), status);
+  }
+
   @Get(':courseId')
   @UseGuards(JwtAuthGuard)
   async getCourse(@Req() req: any, @Param('courseId') courseId: string) {
