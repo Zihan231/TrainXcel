@@ -6,11 +6,15 @@ import { Lesson } from './entities/lesson.entity';
 import { Category } from './entities/category.entity';
 import { Enrollment } from './entities/enrollment.entity';
 import { User } from '../auth/entities/user.entity';
+import { TestSubmission } from './entities/test-submission.entity';
+import { Test } from './entities/test.entity';
+import { Notification } from './entities/notification.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class CoursesService {
@@ -27,6 +31,13 @@ export class CoursesService {
     private readonly enrollmentRepository: Repository<Enrollment>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(TestSubmission)
+    private readonly testSubmissionRepository: Repository<TestSubmission>,
+    @InjectRepository(Test)
+    private readonly testRepository: Repository<Test>,
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
 
@@ -404,7 +415,9 @@ export class CoursesService {
       where: { courseId },
       relations: {
         lessons: true,
-        enrollments: true,
+        enrollments: {
+          user: true,
+        },
       },
     });
 
@@ -424,11 +437,27 @@ export class CoursesService {
 
     // After adding a new lesson, recalculate progress for all enrolled users
     if (course.enrollments && course.enrollments.length > 0) {
-      const updatedTotalLessons = course.lessons.length + 1;
       for (const enrollment of course.enrollments) {
+        const updatedTotalLessons = course.lessons.length + 1;
         const completedCount = enrollment.completedLessons ? enrollment.completedLessons.length : 0;
         enrollment.progress = Math.round((completedCount / updatedTotalLessons) * 100 * 100) / 100;
         await this.enrollmentRepository.save(enrollment);
+
+        if (createLessonDto.status === 'Active') {
+          // Create Notification
+          const notification = new Notification();
+          notification.message = `A new lesson "${createLessonDto.title}" has been published in ${course.name}.`;
+          notification.user = enrollment.user;
+          notification.actionLink = `/courses/${course.courseId}`;
+          await this.notificationRepository.save(notification);
+
+          // Send Real-time alert
+          this.notificationsGateway.sendNotificationToUser(enrollment.user.userId, {
+            message: notification.message,
+            actionLink: notification.actionLink,
+            createdAt: notification.createdAt,
+          });
+        }
       }
     }
 
@@ -693,6 +722,21 @@ export class CoursesService {
 
     const alreadyCompleted = enrollment.completedLessons.some((cl) => cl.id === lesson.id);
     if (!alreadyCompleted) {
+      // Check if this lesson has any tests
+      const tests = await this.testRepository.find({ where: { lesson: { id: lesson.id } } });
+      if (tests.length > 0) {
+        // Must have at least one valid submission for all tests?
+        // Let's enforce that ALL tests in this lesson must be submitted.
+        for (const test of tests) {
+          const submission = await this.testSubmissionRepository.findOne({
+            where: { test: { id: test.id }, user: { id: user.id }, isDraft: false }
+          });
+          if (!submission) {
+            throw new BadRequestException(`Cannot complete lesson. You must participate in the test: ${test.title}`);
+          }
+        }
+      }
+
       enrollment.completedLessons.push(lesson);
       
       const totalLessons = enrollment.course.lessons.length;
@@ -705,7 +749,7 @@ export class CoursesService {
     return enrollment;
   }
 
-  async getUserProgress(courseId: string, userId: string): Promise<{ progress: number; completedLessonsCount: number; totalLessonsCount: number }> {
+  async getUserProgress(courseId: string, userId: string): Promise<{ progress: number; completedLessonsCount: number; totalLessonsCount: number; completedLessons: string[] }> {
     const course = await this.courseRepository.findOne({
       where: { courseId },
       relations: {
@@ -736,6 +780,7 @@ export class CoursesService {
       progress: enrollment.progress,
       completedLessonsCount: enrollment.completedLessons.length,
       totalLessonsCount: course.lessons.length,
+      completedLessons: enrollment.completedLessons.map((l) => l.lessonId),
     };
   }
 
@@ -831,40 +876,35 @@ export class CoursesService {
 
   // --- Statistics & Analytics ---
   async getDashboardStats(): Promise<{ totalUsers: number; totalCourses: number; totalEmployees: number; overallCompletionRate: number }> {
-    const [totalUsers, totalCourses, totalEmployees, enrollments] = await Promise.all([
+    const [totalUsers, totalCourses, totalEmployees, avgProgressResult] = await Promise.all([
       this.userRepository.count(),
       this.courseRepository.count(),
       this.userRepository.count({ where: { role: 'employee' } }),
-      this.enrollmentRepository.find({ select: { progress: true } }), // Only select progress to reduce DB bandwidth
+      this.enrollmentRepository.createQueryBuilder('enrollment')
+        .select('AVG(enrollment.progress)', 'avg')
+        .getRawOne(),
     ]);
-    
-    const overallCompletionRate = enrollments.length > 0
-      ? Math.round((enrollments.reduce((sum, e) => sum + e.progress, 0) / enrollments.length) * 100) / 100
+
+    const overallCompletionRate = avgProgressResult && avgProgressResult.avg
+      ? Math.round(parseFloat(avgProgressResult.avg) * 100) / 100
       : 0;
 
-    return {
-      totalUsers,
-      totalCourses,
-      totalEmployees,
-      overallCompletionRate,
-    };
+    return { totalUsers, totalCourses, totalEmployees, overallCompletionRate };
   }
 
   async getMonthlyProgress(): Promise<{ month: string; progress: number }[]> {
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-    const enrollments = await this.enrollmentRepository.find({
-      where: {
-        createdAt: MoreThanOrEqual(twelveMonthsAgo),
-      },
-      order: {
-        createdAt: 'ASC',
-      },
-    });
+    const data = await this.enrollmentRepository.createQueryBuilder('enrollment')
+      .select("TO_CHAR(enrollment.createdAt, 'Mon YYYY')", 'month')
+      .addSelect('AVG(enrollment.progress)', 'progress')
+      .where('enrollment.createdAt >= :date', { date: twelveMonthsAgo })
+      .groupBy("TO_CHAR(enrollment.createdAt, 'Mon YYYY')")
+      .orderBy('MIN(enrollment.createdAt)', 'ASC')
+      .getRawMany();
 
-    if (enrollments.length === 0) {
-      // Fallback placeholder data so graphs do not break when database is empty
+    if (data.length === 0) {
       return [
         { month: 'Jan 2026', progress: 10.5 },
         { month: 'Feb 2026', progress: 24.0 },
@@ -875,133 +915,152 @@ export class CoursesService {
       ];
     }
 
-    const monthlyData: { [key: string]: { sum: number; count: number } } = {};
-
-    enrollments.forEach((e) => {
-      const date = new Date(e.createdAt);
-      const monthName = date.toLocaleString('default', { month: 'short' }); // e.g. "Jul"
-      const year = date.getFullYear(); // e.g. 2026
-      const key = `${monthName} ${year}`;
-
-      if (!monthlyData[key]) {
-        monthlyData[key] = { sum: 0, count: 0 };
-      }
-      monthlyData[key].sum += e.progress;
-      monthlyData[key].count++;
-    });
-
-    return Object.keys(monthlyData).map((key) => ({
-      month: key,
-      progress: Math.round((monthlyData[key].sum / monthlyData[key].count) * 100) / 100,
+    return data.map(d => ({
+      month: d.month,
+      progress: Math.round(parseFloat(d.progress) * 100) / 100,
     }));
   }
 
   async getCourseProgressComparison(): Promise<{ courseId: string; name: string; enrolledCount: number; completionRate: number }[]> {
-    const courses = await this.getAllCourses();
-    return courses.map((c) => ({
+    const courses = await this.courseRepository.createQueryBuilder('course')
+      .leftJoin('course.enrollments', 'enrollment')
+      .select('course.courseId', 'courseId')
+      .addSelect('course.name', 'name')
+      .addSelect('COUNT(enrollment.id)', 'enrolledCount')
+      .addSelect('COALESCE(AVG(enrollment.progress), 0)', 'completionRate')
+      .groupBy('course.id')
+      .getRawMany();
+
+    return courses.map(c => ({
       courseId: c.courseId,
       name: c.name,
-      enrolledCount: c.enrolled,
-      completionRate: c.completionRate || 0,
+      enrolledCount: parseInt(c.enrolledCount, 10) || 0,
+      completionRate: Math.round(parseFloat(c.completionRate) * 100) / 100,
     }));
   }
 
   async getCoursePerformance(): Promise<any[]> {
-    const courses = await this.getAllCourses();
-    // Sort courses by completionRate DESC
-    return courses
-      .map((c) => ({
-        courseId: c.courseId,
-        name: c.name,
-        category: c.category ? c.category.name : 'N/A',
-        enrolledCount: c.enrolled,
-        completionRate: c.completionRate || 0,
-      }))
-      .sort((a, b) => b.completionRate - a.completionRate);
+    const courses = await this.courseRepository.createQueryBuilder('course')
+      .leftJoin('course.enrollments', 'enrollment')
+      .leftJoin('course.category', 'category')
+      .select('course.courseId', 'courseId')
+      .addSelect('course.name', 'name')
+      .addSelect('COALESCE(category.name, \'N/A\')', 'category')
+      .addSelect('COUNT(enrollment.id)', 'enrolledCount')
+      .addSelect('COALESCE(AVG(enrollment.progress), 0)', 'completionRate')
+      .groupBy('course.id, category.name')
+      .orderBy('"completionRate"', 'DESC')
+      .getRawMany();
+
+    return courses.map(c => ({
+      courseId: c.courseId,
+      name: c.name,
+      category: c.category,
+      enrolledCount: parseInt(c.enrolledCount, 10) || 0,
+      completionRate: Math.round(parseFloat(c.completionRate) * 100) / 100,
+    }));
   }
 
-  async getUserPerformance(): Promise<any[]> {
-    const users = await this.userRepository.find({
-      relations: { enrollments: true },
-    });
+  async getUserPerformance(pageStr?: string, limitStr?: string): Promise<any> {
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 6;
+    const skip = (page - 1) * limit;
 
-    return users.map((u) => {
-      const completedCount = u.enrollments.filter((e) => e.progress === 100).length;
-      const activeCount = u.enrollments.filter((e) => e.progress > 0 && e.progress < 100).length;
-      const totalProgress = u.enrollments.reduce((sum, e) => sum + e.progress, 0);
-      const avgProgress = u.enrollments.length > 0
-        ? Math.round((totalProgress / u.enrollments.length) * 100) / 100
-        : 0;
+    const query = this.userRepository.createQueryBuilder('user')
+      .leftJoin('user.enrollments', 'enrollment')
+      .select('user.userId', 'userId')
+      .addSelect('user.name', 'name')
+      .addSelect('user.email', 'email')
+      .addSelect('user.role', 'role')
+      .addSelect('COUNT(CASE WHEN enrollment.progress = 100 THEN 1 END)', 'completedCoursesCount')
+      .addSelect('COUNT(CASE WHEN enrollment.progress > 0 AND enrollment.progress < 100 THEN 1 END)', 'activeCoursesCount')
+      .addSelect('COALESCE(AVG(enrollment.progress), 0)', 'averageProgress')
+      .groupBy('user.id')
+      .orderBy('"averageProgress"', 'DESC')
+      .limit(limit)
+      .offset(skip);
 
-      return {
-        userId: u.userId,
-        name: u.name,
-        email: u.email,
-        role: u.role,
-        completedCoursesCount: completedCount,
-        activeCoursesCount: activeCount,
-        averageProgress: avgProgress,
-      };
-    });
+    const [dataRaw, totalRaw] = await Promise.all([
+      query.getRawMany(),
+      this.userRepository.count()
+    ]);
+
+    const data = dataRaw.map(u => ({
+      userId: u.userId,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      completedCoursesCount: parseInt(u.completedCoursesCount, 10) || 0,
+      activeCoursesCount: parseInt(u.activeCoursesCount, 10) || 0,
+      averageProgress: Math.round(parseFloat(u.averageProgress) * 100) / 100,
+    }));
+
+    return { data, total: totalRaw, page, totalPages: Math.ceil(totalRaw / limit) };
   }
 
-  async getCategoryStats(): Promise<any[]> {
-    const categories = await this.categoryRepository.find({
-      relations: { courses: { enrollments: true } },
-    });
+  async getCategoryStats(pageStr?: string, limitStr?: string): Promise<any> {
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 6;
+    const skip = (page - 1) * limit;
 
-    return categories.map((cat) => {
-      let totalEnrolled = 0;
-      let progressSum = 0;
-      let totalEnrollmentRecords = 0;
+    const query = this.categoryRepository.createQueryBuilder('category')
+      .leftJoin('category.courses', 'course')
+      .leftJoin('course.enrollments', 'enrollment')
+      .select('category.id', 'categoryId')
+      .addSelect('category.name', 'categoryName')
+      .addSelect('COUNT(DISTINCT course.id)', 'coursesCount')
+      .addSelect('COUNT(enrollment.id)', 'totalEnrolled')
+      .addSelect('COALESCE(AVG(enrollment.progress), 0)', 'averageProgress')
+      .groupBy('category.id')
+      .orderBy('"averageProgress"', 'DESC')
+      .limit(limit)
+      .offset(skip);
 
-      cat.courses.forEach((c) => {
-        totalEnrolled += c.enrolled;
-        c.enrollments.forEach((e) => {
-          progressSum += e.progress;
-          totalEnrollmentRecords++;
-        });
-      });
+    const [dataRaw, totalRaw] = await Promise.all([
+      query.getRawMany(),
+      this.categoryRepository.count()
+    ]);
 
-      const avgProgress = totalEnrollmentRecords > 0
-        ? Math.round((progressSum / totalEnrollmentRecords) * 100) / 100
-        : 0;
+    const data = dataRaw.map(c => ({
+      categoryId: c.categoryId,
+      categoryName: c.categoryName,
+      coursesCount: parseInt(c.coursesCount, 10) || 0,
+      totalEnrolled: parseInt(c.totalEnrolled, 10) || 0,
+      averageProgress: Math.round(parseFloat(c.averageProgress) * 100) / 100,
+    }));
 
-      return {
-        categoryId: cat.id,
-        categoryName: cat.name,
-        coursesCount: cat.courses.length,
-        totalEnrolled,
-        averageProgress: avgProgress,
-      };
-    });
+    return { data, total: totalRaw, page, totalPages: Math.ceil(totalRaw / limit) };
   }
 
   async getMaterialStats(): Promise<any[]> {
-    const lessons = await this.lessonRepository.find();
-    const enrollments = await this.enrollmentRepository.find({
-      relations: { completedLessons: true },
-    });
+    const availableRaw = await this.lessonRepository.createQueryBuilder('lesson')
+      .select('lesson.materialType', 'materialType')
+      .addSelect('COUNT(lesson.id)', 'count')
+      .groupBy('lesson.materialType')
+      .getRawMany();
+
+    const completedRaw = await this.enrollmentRepository.query(`
+      SELECT l."materialType", COUNT(l.id) as count
+      FROM enrollment_completed_lessons ecl
+      JOIN lessons l ON l.id = ecl."lessonsId"
+      GROUP BY l."materialType"
+    `);
 
     const materialMap = new Map<string, { count: number; completedCount: number }>();
-    
-    // Initialize map
     materialMap.set('Video', { count: 0, completedCount: 0 });
     materialMap.set('PDF', { count: 0, completedCount: 0 });
     materialMap.set('PPT', { count: 0, completedCount: 0 });
 
-    lessons.forEach((l) => {
-      const stats = materialMap.get(l.materialType) || { count: 0, completedCount: 0 };
-      stats.count++;
-      materialMap.set(l.materialType, stats);
+    availableRaw.forEach(r => {
+      const stats = materialMap.get(r.materialType) || { count: 0, completedCount: 0 };
+      stats.count = parseInt(r.count, 10) || 0;
+      materialMap.set(r.materialType, stats);
     });
 
-    enrollments.forEach((enr) => {
-      enr.completedLessons.forEach((cl) => {
-        const stats = materialMap.get(cl.materialType) || { count: 0, completedCount: 0 };
-        stats.completedCount++;
-        materialMap.set(cl.materialType, stats);
-      });
+    completedRaw.forEach(r => {
+      const stats = materialMap.get(r.materialType) || { count: 0, completedCount: 0 };
+      stats.completedCount = parseInt(r.count, 10) || 0;
+      materialMap.set(r.materialType, stats);
     });
 
     return Array.from(materialMap.entries()).map(([materialType, stats]) => ({
@@ -1011,13 +1070,21 @@ export class CoursesService {
     }));
   }
 
-  async getAtRiskLearners(): Promise<any[]> {
-    const atRisk = await this.enrollmentRepository.find({
-      where: { progress: LessThan(15.0) },
-      relations: { user: true, course: true },
-    });
+  async getAtRiskLearners(pageStr?: string, limitStr?: string): Promise<any> {
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 6;
+    const skip = (page - 1) * limit;
 
-    return atRisk.map((e) => ({
+    const [atRisk, total] = await this.enrollmentRepository.createQueryBuilder('enrollment')
+      .leftJoinAndSelect('enrollment.user', 'user')
+      .leftJoinAndSelect('enrollment.course', 'course')
+      .where('enrollment.progress < 15.0')
+      .orderBy('enrollment.progress', 'ASC')
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    const data = atRisk.map((e) => ({
       userId: e.user.userId,
       name: e.user.name,
       email: e.user.email,
@@ -1025,14 +1092,18 @@ export class CoursesService {
       courseName: e.course.name,
       progress: e.progress,
     }));
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, total, page, totalPages };
   }
 
   async getRecentActivity(): Promise<any[]> {
-    const enrollments = await this.enrollmentRepository.find({
-      relations: { user: true, course: true },
-      order: { id: 'DESC' },
-      take: 10,
-    });
+    const enrollments = await this.enrollmentRepository.createQueryBuilder('enrollment')
+      .leftJoinAndSelect('enrollment.user', 'user')
+      .leftJoinAndSelect('enrollment.course', 'course')
+      .orderBy('enrollment.id', 'DESC')
+      .take(10)
+      .getMany();
 
     return enrollments.map((e) => ({
       activityId: e.id,

@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 import { Course } from './course.entity';
+import { Test } from './test.entity';
 
 @Entity('lessons')
 export class Lesson {
@@ -27,6 +28,9 @@ export class Lesson {
 
   @ManyToOne(() => Course, (course) => course.lessons, { onDelete: 'CASCADE' })
   course: Course;
+
+  @OneToMany(() => Test, (test) => test.lesson)
+  tests: Test[];
 
   @CreateDateColumn()
   createdAt: Date;

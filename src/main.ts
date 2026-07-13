@@ -27,7 +27,13 @@
     );
 
     const port = process.env.PORT ?? 3000;
-    await app.listen(port);
+    const server = await app.listen(port);
+    
+    // Fix for Axios Network Error (ECONNRESET) on Chrome/Node keep-alive race condition
+    // Chrome uses a 60s keep-alive. Setting Node to 61s prevents Node from closing the connection first.
+    server.keepAliveTimeout = 61000;
+    server.headersTimeout = 65000;
+    
     console.log(`Application is running on: http://localhost:${port}`);
   }
   bootstrap();

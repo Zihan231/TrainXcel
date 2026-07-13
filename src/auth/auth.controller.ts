@@ -11,21 +11,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(
-    @Body() registerDto: RegisterDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const { user, token } = await this.authService.register(registerDto);
-    response.cookie('jwt', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      maxAge: 3600 * 1000, // 1 hour
-    });
-    return user;
-  }
+
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

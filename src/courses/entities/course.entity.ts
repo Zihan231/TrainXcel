@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index, Cr
 import { Category } from './category.entity';
 import { Lesson } from './lesson.entity';
 import { Enrollment } from './enrollment.entity';
+import { Test } from './test.entity';
 
 @Entity('courses')
 export class Course {
@@ -30,6 +31,9 @@ export class Course {
 
   @OneToMany(() => Enrollment, (enrollment) => enrollment.course)
   enrollments: Enrollment[];
+
+  @OneToMany(() => Test, (test) => test.course)
+  tests: Test[];
 
   @CreateDateColumn()
   createdAt: Date;

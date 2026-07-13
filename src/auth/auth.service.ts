@@ -39,26 +39,7 @@ export class AuthService {
   }
 
 
-  async register(registerDto: RegisterDto): Promise<{ user: Omit<User, 'password'>; token: string }> {
-    const existingUser = await this.userRepository.findOne({ where: { email: registerDto.email } });
-    if (existingUser) {
-      throw new ConflictException('Email is already registered');
-    }
 
-    const userId = await this.generateNextUserId();
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-    const newUser = this.userRepository.create({
-      ...registerDto,
-      userId,
-      password: hashedPassword,
-      role: 'user', // Hardcode default role to user
-    });
-
-    const savedUser = await this.userRepository.save(newUser);
-    const token = await this.signToken(savedUser.userId, savedUser.role);
-    const { password, ...result } = savedUser;
-    return { user: result, token };
-  }
 
   async createEmployee(createEmployeeDto: CreateEmployeeDto, requesterId: string): Promise<Omit<User, 'password'>> {
     const requester = await this.userRepository.findOne({ where: { userId: requesterId } });

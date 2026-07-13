@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -13,64 +13,109 @@ export class CoursesController {
 
   // --- Statistics & Analytics ---
   @Get('stats/dashboard')
-  async getDashboardStats() {
+  @UseGuards(JwtAuthGuard)
+  async getDashboardStats(@Req() req: any) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
     return this.coursesService.getDashboardStats();
   }
 
   @Get('stats/monthly-progress')
-  async getMonthlyProgress() {
+  @UseGuards(JwtAuthGuard)
+  async getMonthlyProgress(@Req() req: any) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
     return this.coursesService.getMonthlyProgress();
   }
 
   @Get('stats/course-progress-comparison')
-  async getCourseProgressComparison() {
+  @UseGuards(JwtAuthGuard)
+  async getCourseProgressComparison(@Req() req: any) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
     return this.coursesService.getCourseProgressComparison();
   }
 
   @Get('stats/performance')
-  async getCoursePerformance() {
+  @UseGuards(JwtAuthGuard)
+  async getCoursePerformance(@Req() req: any) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
     return this.coursesService.getCoursePerformance();
   }
 
   @Get('stats/user-performance')
-  async getUserPerformance() {
-    return this.coursesService.getUserPerformance();
+  @UseGuards(JwtAuthGuard)
+  async getUserPerformance(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    return this.coursesService.getUserPerformance(page, limit);
   }
 
   @Get('stats/categories')
-  async getCategoryStats() {
-    return this.coursesService.getCategoryStats();
+  @UseGuards(JwtAuthGuard)
+  async getCategoryStats(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    return this.coursesService.getCategoryStats(page, limit);
   }
 
   @Get('stats/materials')
-  async getMaterialStats() {
+  @UseGuards(JwtAuthGuard)
+  async getMaterialStats(@Req() req: any) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
     return this.coursesService.getMaterialStats();
   }
 
   @Get('stats/at-risk')
-  async getAtRiskLearners() {
-    return this.coursesService.getAtRiskLearners();
+  @UseGuards(JwtAuthGuard)
+  async getAtRiskLearners(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    return this.coursesService.getAtRiskLearners(page, limit);
   }
 
   @Get('stats/recent-activity')
-  async getRecentActivity() {
+  @UseGuards(JwtAuthGuard)
+  async getRecentActivity(@Req() req: any) {
+    const { userId, role } = req.user;
+    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
     return this.coursesService.getRecentActivity();
   }
 
   // --- Search ---
   @Get('search/unified')
-  async searchUnified(@Query('q') q: string) {
+  @UseGuards(JwtAuthGuard)
+  async searchUnified(@Req() req: any, @Query('q') q: string) {
+    const { userId, role } = req.user;
     return this.coursesService.searchUnified(q || '');
   }
 
   @Get('search')
-  async searchCoursesOnly(@Query('q') q: string) {
+  @UseGuards(JwtAuthGuard)
+  async searchCoursesOnly(@Req() req: any, @Query('q') q: string) {
+    const { userId, role } = req.user;
     return this.coursesService.searchCoursesOnly(q || '');
   }
 
   // --- Categories ---
   @Get('categories')
-  async getCategories() {
+  @UseGuards(JwtAuthGuard)
+  async getCategories(@Req() req: any) {
+    const { userId, role } = req.user;
     return this.coursesService.getAllCategories();
   }
 
@@ -83,13 +128,16 @@ export class CoursesController {
 
   // --- Courses ---
   @Get()
+  @UseGuards(JwtAuthGuard)
   async getCourses(
+    @Req() req: any,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 6,
     @Query('categoryId') categoryId?: number,
     @Query('status') status?: string,
     @Query('q') q?: string,
   ) {
+    const { userId, role } = req.user;
     return this.coursesService.getCoursesPaginated(
       Number(page),
       Number(limit),
@@ -117,7 +165,9 @@ export class CoursesController {
   }
 
   @Get(':courseId')
-  async getCourse(@Param('courseId') courseId: string) {
+  @UseGuards(JwtAuthGuard)
+  async getCourse(@Req() req: any, @Param('courseId') courseId: string) {
+    const { userId, role } = req.user;
     return this.coursesService.getCourseById(courseId);
   }
 
@@ -177,7 +227,9 @@ export class CoursesController {
   }
 
   @Get(':courseId/lessons')
-  async getLessons(@Param('courseId') courseId: string) {
+  @UseGuards(JwtAuthGuard)
+  async getLessons(@Req() req: any, @Param('courseId') courseId: string) {
+    const { userId, role } = req.user;
     return this.coursesService.getLessonsByCourseId(courseId);
   }
 
@@ -253,7 +305,9 @@ export class CoursesController {
   }
 
   @Get(':courseId/progress/:userId')
-  async getProgress(@Param('courseId') courseId: string, @Param('userId') userId: string) {
-    return this.coursesService.getUserProgress(courseId, userId);
+  @UseGuards(JwtAuthGuard)
+  async getProgress(@Req() req: any, @Param('courseId') courseId: string, @Param('userId') targetUserId: string) {
+    const { userId, role } = req.user;
+    return this.coursesService.getUserProgress(courseId, targetUserId);
   }
 }
