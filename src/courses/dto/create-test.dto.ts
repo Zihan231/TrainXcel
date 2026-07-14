@@ -5,7 +5,7 @@ export class QuestionDto {
   @IsString()
   questionText: string;
 
-  @IsEnum(['MCQ', 'CQ'])
+  @IsEnum(['MCQ', 'CQ', 'Video'])
   type: string;
 
   @IsArray()

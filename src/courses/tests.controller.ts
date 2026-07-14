@@ -1,5 +1,8 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { TestsService } from './tests.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
@@ -14,6 +17,37 @@ export class TestsController {
   async createTest(@Body() createDto: CreateTestDto, @Req() req: any) {
     const { userId, role } = req.user;
     return this.testsService.createTest(createDto, userId, role);
+  }
+
+  @Post('upload-test-video')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/test-videos',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.match(/\/(mp4|mpeg|quicktime|webm|ogg)$/) || file.originalname.match(/\.(mp4|mov|avi|webm|ogg)$/i)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Only video files are allowed.'), false);
+        }
+      },
+    }),
+  )
+  async uploadTestVideo(@UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('Video file is required');
+    }
+    return {
+      url: `/uploads/test-videos/${file.filename}`,
+      filename: file.filename,
+      originalName: file.originalname,
+    };
   }
 
   @Get('lesson/:lessonId')
