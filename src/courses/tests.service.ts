@@ -207,7 +207,7 @@ export class TestsService {
           } else {
             subAnswer.marksAwarded = 0;
           }
-        } else if (question.type === 'CQ') {
+        } else if (question.type === 'CQ' || question.type === 'Video') {
           needsManualEvaluation = true;
           subAnswer.marksAwarded = 0; // pending
         }
@@ -274,7 +274,7 @@ export class TestsService {
 
     for (const ev of evalDto.evaluations) {
       const ans = submission.answers.find(a => a.id === ev.submissionAnswerId);
-      if (ans && ans.question.type === 'CQ') {
+      if (ans && (ans.question.type === 'CQ' || ans.question.type === 'Video')) {
         ans.marksAwarded = ev.marksAwarded;
         ans.evaluatorComment = ev.evaluatorComment || '';
         newMarksAdded += ev.marksAwarded;
