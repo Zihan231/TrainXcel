@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not } from 'typeorm';
+import { Repository, IsNull, Not, In } from 'typeorm';
 import { Test } from './entities/test.entity';
 import { Question } from './entities/question.entity';
 import { TestSubmission } from './entities/test-submission.entity';
@@ -348,5 +348,18 @@ export class TestsService {
     if (data.marks !== undefined) question.marks = data.marks;
 
     return this.questionRepo.save(question);
+  }
+
+  async getLessonSubmissions(lessonId: number) {
+    const tests = await this.testRepo.find({ where: { lesson: { id: lessonId } } });
+    if (!tests.length) return [];
+
+    const testIds = tests.map((t) => t.id);
+
+    return this.submissionRepo.find({
+      where: { test: { id: In(testIds) }, isDraft: false },
+      relations: { user: true, test: true },
+      order: { submittedAt: 'DESC' },
+    });
   }
 }

@@ -3,20 +3,37 @@
   import { AppModule } from './app.module';
   import { ValidationPipe } from '@nestjs/common';
   import cookieParser from 'cookie-parser';
+  import * as express from 'express';
+  import * as fs from 'fs';
+  import { join } from 'path';
 
   async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+    
+    // Ensure uploads directory exists
+    const uploadDir = join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
     app.use(cookieParser());
     const allowedOrigins = [
       process.env.FRONTEND_URL,
-      'http://localhost:3001',
       'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3002',
     ].filter(Boolean);
 
     app.enableCors({
       origin: allowedOrigins,
       credentials: true,
     });
+
+    // Serve static files
+    app.use('/uploads', express.static(uploadDir));
     
     // Enable global validation pipe for DTO validation
     app.useGlobalPipes(

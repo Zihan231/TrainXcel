@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -6,10 +6,55 @@ import { CreateLessonDto } from './dto/create-lesson.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
+
+  @Post('upload')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        // Accept videos, pdfs, ppts, docx
+        if (
+          file.mimetype.match(
+            /\/(pdf|mp4|mpeg|quicktime|msword|vnd.ms-powerpoint|vnd.openxmlformats-officedocument.presentationml.presentation|vnd.openxmlformats-officedocument.wordprocessingml.document)$/,
+          ) ||
+          file.originalname.match(/\.(pdf|mp4|mov|avi|ppt|pptx|doc|docx)$/i)
+        ) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Unsupported file type. Only Video, PDF, PPT, and DOCX files are allowed.'), false);
+        }
+      },
+    }),
+  )
+  async uploadFile(@UploadedFile() file: any, @Req() req: any) {
+    const { role } = req.user;
+    if (role === 'user') {
+      throw new ForbiddenException('Only admin and employee users can upload course files.');
+    }
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return {
+      url: `/uploads/${file.filename}`,
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+    };
+  }
 
   // --- Statistics & Analytics ---
   @Get('stats/dashboard')

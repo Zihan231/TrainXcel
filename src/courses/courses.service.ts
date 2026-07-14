@@ -15,6 +15,8 @@ import { CreateLessonDto } from './dto/create-lesson.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { NotificationsGateway } from './notifications.gateway';
+import * as fs from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class CoursesService {
@@ -39,6 +41,19 @@ export class CoursesService {
     private readonly notificationRepository: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
   ) {}
+
+  private deletePhysicalFile(materialLink: string) {
+    if (materialLink && materialLink.startsWith('/uploads/')) {
+      const filePath = join(process.cwd(), materialLink);
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to delete physical file: ${filePath}`, err);
+      }
+    }
+  }
 
 
 
@@ -351,6 +366,17 @@ export class CoursesService {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
+    // Clean up physical files for all lessons of this course
+    const lessons = await this.lessonRepository.find({
+      where: { course: { id: course.id } },
+      withDeleted: true,
+    });
+    for (const l of lessons) {
+      if (l.materialLink) {
+        this.deletePhysicalFile(l.materialLink);
+      }
+    }
+
     await this.courseRepository.delete(course.id);
     return { message: 'Course permanently deleted' };
   }
@@ -435,6 +461,7 @@ export class CoursesService {
 
     const lesson = this.lessonRepository.create({
       ...createLessonDto,
+      title: createLessonDto.title,
       lessonId,
       course,
     });
@@ -638,6 +665,10 @@ export class CoursesService {
           await this.enrollmentRepository.save(enrollment);
         }
       }
+    }
+
+    if (lesson.materialLink) {
+      this.deletePhysicalFile(lesson.materialLink);
     }
 
     await this.lessonRepository.delete(lesson.id);

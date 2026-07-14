@@ -11,10 +11,10 @@ export class UpdateLessonDto {
 
   @IsString()
   @IsOptional()
-  @IsIn(['Video', 'PDF', 'PPT'], { message: 'Material Type must be Video, PDF, or PPT' })
+  @IsIn(['Video', 'PDF', 'PPT', 'DOCX'], { message: 'Material Type must be Video, PDF, PPT, or DOCX' })
   materialType?: string;
 
-  @IsUrl({}, { message: 'Material Link must be a valid URL' })
+  @IsString()
   @IsOptional()
   materialLink?: string;
 

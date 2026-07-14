@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException } from '@nestjs/common';
 import { TestsService } from './tests.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateTestDto } from './dto/create-test.dto';
@@ -67,5 +67,14 @@ export class TestsController {
   ) {
     const { role } = req.user;
     return this.testsService.updateQuestion(+questionId, body, role);
+  }
+
+  @Get('lesson/:lessonId/submissions')
+  async getLessonSubmissions(@Param('lessonId') lessonId: string, @Req() req: any) {
+    const { role } = req.user;
+    if (role === 'user') {
+      throw new ForbiddenException('Only admin and employee users can view all student marks');
+    }
+    return this.testsService.getLessonSubmissions(+lessonId);
   }
 }
