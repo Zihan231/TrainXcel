@@ -37,6 +37,9 @@ export class Test {
   @OneToMany(() => TestSubmission, (submission) => submission.test)
   submissions: TestSubmission[];
 
+  @Column({ default: 'published' })
+  status: string; // 'published' | 'scheduled' | 'active' | 'completed' | 'cancelled'
+
   @CreateDateColumn()
   createdAt: Date;
 

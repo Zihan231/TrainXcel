@@ -19,6 +19,7 @@ import { TestsService } from './tests.service';
 import { TestsController } from './tests.controller';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
+import { ExamSchedulerService } from './exam-scheduler.service';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { NotificationsController } from './notifications.controller';
     ConfigModule,
   ],
   controllers: [CoursesController, TestsController, NotificationsController],
-  providers: [CoursesService, TrashCleanupService, TestsService, NotificationsGateway],
+  providers: [CoursesService, TrashCleanupService, TestsService, ExamSchedulerService, NotificationsGateway],
   exports: [CoursesService, TestsService, NotificationsGateway],
 })
 export class CoursesModule {}

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not, In } from 'typeorm';
+import { Repository, IsNull, Not, In, MoreThanOrEqual } from 'typeorm';
 import { Test } from './entities/test.entity';
 import { Question } from './entities/question.entity';
 import { TestSubmission } from './entities/test-submission.entity';
@@ -41,6 +41,19 @@ export class TestsService {
     test.testType = createDto.testType;
     if (createDto.startTime) test.startTime = new Date(createDto.startTime);
     if (createDto.endTime) test.endTime = new Date(createDto.endTime);
+
+    const now = new Date();
+    if (createDto.testType === 'Standalone') {
+      if (test.startTime && now < test.startTime) {
+        test.status = 'scheduled';
+      } else if (test.endTime && now > test.endTime) {
+        test.status = 'completed';
+      } else {
+        test.status = 'active';
+      }
+    } else {
+      test.status = 'published';
+    }
 
     if (createDto.courseId) {
       const course = await this.courseRepo.findOne({ where: { id: createDto.courseId } });
@@ -104,9 +117,20 @@ export class TestsService {
     });
   }
 
-  async getTestsForCourse(courseId: number) {
+  async getTestsForCourse(courseIdOrCode: number | string) {
+    const courseIdStr = String(courseIdOrCode).trim();
+    const isNumeric = /^[0-9]+$/.test(courseIdStr) && String(Number(courseIdStr)) === courseIdStr;
+
+    const course = isNumeric
+      ? await this.courseRepo.findOne({ where: { id: Number(courseIdStr) } })
+      : await this.courseRepo.findOne({ where: { courseId: courseIdStr } });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
     return this.testRepo.find({
-      where: { course: { id: courseId }, testType: 'Course' },
+      where: { course: { id: course.id }, testType: 'Course' },
       relations: { questions: true },
     });
   }
@@ -121,10 +145,33 @@ export class TestsService {
     });
   }
   
-  async getStandaloneExamsForCourse(courseId: number) {
+  async getStandaloneExamsForCourse(courseIdOrCode: number | string, role: string = 'user') {
+    const courseIdStr = String(courseIdOrCode).trim();
+    const isNumeric = /^[0-9]+$/.test(courseIdStr) && String(Number(courseIdStr)) === courseIdStr;
+
+    const course = isNumeric
+      ? await this.courseRepo.findOne({ where: { id: Number(courseIdStr) } })
+      : await this.courseRepo.findOne({ where: { courseId: courseIdStr } });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    const whereClause: any = {
+      course: { id: course.id },
+      testType: In(['Standalone', 'standalone']),
+    };
+
+    if (role !== 'admin' && role !== 'employee') {
+      // Users should be able to see standalone timed exams as soon as they're added,
+      // even if the startTime is in the future (status = 'scheduled').
+      whereClause.status = In(['published', 'scheduled', 'active', 'completed']);
+    }
+
     return this.testRepo.find({
-      where: { course: { id: courseId }, testType: 'Standalone' },
+      where: whereClause,
       relations: { questions: true },
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -256,7 +303,7 @@ export class TestsService {
     if (role !== 'admin' && role !== 'employee') throw new ForbiddenException();
     return this.submissionRepo.find({
       where: { status: 'Pending Evaluation', isDraft: false },
-      relations: { test: { lesson: true }, user: true, answers: { question: true } },
+      relations: { test: { lesson: { course: true }, course: true }, user: true, answers: { question: true } },
     });
   }
 

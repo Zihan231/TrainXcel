@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { TestsService } from './tests.service';
+import { ExamSchedulerService } from './exam-scheduler.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -11,7 +12,10 @@ import { EvaluateCqDto } from './dto/evaluate-cq.dto';
 @Controller('tests')
 @UseGuards(JwtAuthGuard)
 export class TestsController {
-  constructor(private readonly testsService: TestsService) {}
+  constructor(
+    private readonly testsService: TestsService,
+    private readonly examSchedulerService: ExamSchedulerService,
+  ) {}
 
   @Post()
   async createTest(@Body() createDto: CreateTestDto, @Req() req: any) {
@@ -57,7 +61,7 @@ export class TestsController {
 
   @Get('course/:courseId')
   async getTestsForCourse(@Param('courseId') courseId: string) {
-    return this.testsService.getTestsForCourse(+courseId);
+    return this.testsService.getTestsForCourse(courseId);
   }
 
   @Get(':testId/my-submission')
@@ -67,8 +71,9 @@ export class TestsController {
   }
 
   @Get('standalone/:courseId')
-  async getStandaloneExamsForCourse(@Param('courseId') courseId: string) {
-    return this.testsService.getStandaloneExamsForCourse(+courseId);
+  async getStandaloneExamsForCourse(@Param('courseId') courseId: string, @Req() req: any) {
+    const role = req.user?.role || 'user';
+    return this.testsService.getStandaloneExamsForCourse(courseId, role);
   }
 
   @Post('submit')
@@ -110,5 +115,14 @@ export class TestsController {
       throw new ForbiddenException('Only admin and employee users can view all student marks');
     }
     return this.testsService.getLessonSubmissions(+lessonId);
+  }
+
+  @Post('standalone/:examId/finalize')
+  async finalizeExam(@Param('examId') examId: string, @Req() req: any) {
+    const { role } = req.user;
+    if (role !== 'admin' && role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee can finalize exams');
+    }
+    return this.examSchedulerService.finalizeExamManually(+examId);
   }
 }
