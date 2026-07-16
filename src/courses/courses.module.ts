@@ -21,6 +21,8 @@ import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
 import { ExamSchedulerService } from './exam-scheduler.service';
 
+import { MediaProcessorService } from './media-processor.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Course, Lesson, Category, Enrollment, User, Test, Question, TestSubmission, SubmissionAnswer, Notification]),
@@ -28,7 +30,14 @@ import { ExamSchedulerService } from './exam-scheduler.service';
     ConfigModule,
   ],
   controllers: [CoursesController, TestsController, NotificationsController],
-  providers: [CoursesService, TrashCleanupService, TestsService, ExamSchedulerService, NotificationsGateway],
+  providers: [
+    CoursesService, 
+    TrashCleanupService, 
+    TestsService, 
+    ExamSchedulerService, 
+    NotificationsGateway,
+    MediaProcessorService
+  ],
   exports: [CoursesService, TestsService, NotificationsGateway],
 })
 export class CoursesModule {}

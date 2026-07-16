@@ -14,6 +14,7 @@ import { NotificationsGateway } from './notifications.gateway';
 import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { EvaluateCqDto } from './dto/evaluate-cq.dto';
+import { MediaProcessorService } from './media-processor.service';
 
 @Injectable()
 export class TestsService {
@@ -28,6 +29,7 @@ export class TestsService {
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(Notification) private notificationRepo: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
+    private mediaProcessorService: MediaProcessorService,
   ) {}
 
   async createTest(createDto: CreateTestDto, userId: string, role: string) {
@@ -289,6 +291,29 @@ export class TestsService {
           enrollment.progress = Math.round((completedCount / totalLessons) * 100 * 100) / 100;
           await this.enrollmentRepo.save(enrollment);
         }
+      }
+    }
+    if (!submission.isDraft && needsManualEvaluation) {
+      const videoAnswer = submitDto.answers.find(ans => {
+        const q = test.questions.find(quest => quest.id === ans.questionId);
+        return q && q.type === 'Video';
+      });
+
+      if (videoAnswer && videoAnswer.providedAnswer) {
+        let filename = videoAnswer.providedAnswer;
+        if (filename.includes('/')) {
+          filename = filename.split('/').pop(); 
+        }
+
+        this.mediaProcessorService.processVideoAssets(
+          filename, 
+          test.id,
+          test.lesson?.id
+        ).then(() => {
+          console.log(`[Media Processor] Assets successfully extracted for test-${test.id}`);
+        }).catch((err) => {
+          console.error(`[Media Processor] Failed to extract media for test-${test.id}:`, err);
+        });
       }
     }
  
