@@ -16,7 +16,6 @@ import { CoursesService } from './courses.service';
 import { CoursesController } from './courses.controller';
 import { TrashCleanupService } from './trash-cleanup.service';
 import { TestsService } from './tests.service';
-import { TestsController } from './tests.controller';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
 import { ExamSchedulerService } from './exam-scheduler.service';
@@ -29,7 +28,7 @@ import { MediaProcessorService } from './media-processor.service';
     AuthModule,
     ConfigModule,
   ],
-  controllers: [CoursesController, TestsController, NotificationsController],
+  controllers: [CoursesController, NotificationsController],
   providers: [
     CoursesService, 
     TrashCleanupService, 
