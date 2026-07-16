@@ -15,6 +15,7 @@ import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { EvaluateCqDto } from './dto/evaluate-cq.dto';
 import { MediaProcessorService } from './media-processor.service';
+import { SpeechService } from './speech.service';
 
 @Injectable()
 export class TestsService {
@@ -30,6 +31,7 @@ export class TestsService {
     @InjectRepository(Notification) private notificationRepo: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
     private mediaProcessorService: MediaProcessorService,
+    private speechService: SpeechService,
   ) {}
 
   async createTest(createDto: CreateTestDto, userId: string, role: string) {
@@ -309,8 +311,23 @@ export class TestsService {
           filename, 
           test.id,
           test.lesson?.id
-        ).then(() => {
+        ).then(async (assets) => { // 1. Add 'async' and capture the 'assets' response
+          
           console.log(`[Media Processor] Assets successfully extracted for test-${test.id}`);
+          
+          // 2. NOW CALL GOOGLE SPEECH HERE!
+          try {
+            // assets.audioPath is the direct path to the new MP3 file we just made
+            const transcript = await this.speechService.transcribeAudio(assets.audioPath);
+            
+            console.log(`[Speech API] Final Transcript:\n`, transcript);
+            
+            // (Later, we will save this transcript to the database here)
+            
+          } catch (speechErr) {
+            console.error(`[Speech API] Failed to transcribe audio:`, speechErr);
+          }
+
         }).catch((err) => {
           console.error(`[Media Processor] Failed to extract media for test-${test.id}:`, err);
         });

@@ -21,20 +21,22 @@ import { NotificationsController } from './notifications.controller';
 import { ExamSchedulerService } from './exam-scheduler.service';
 
 import { MediaProcessorService } from './media-processor.service';
-
+import { SpeechService } from './speech.service';
+import { TestsController } from './tests.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Course, Lesson, Category, Enrollment, User, Test, Question, TestSubmission, SubmissionAnswer, Notification]),
     AuthModule,
     ConfigModule,
   ],
-  controllers: [CoursesController, NotificationsController],
+  controllers: [CoursesController, NotificationsController, TestsController],
   providers: [
     CoursesService, 
     TrashCleanupService, 
     TestsService, 
     ExamSchedulerService, 
     NotificationsGateway,
+    SpeechService,
     MediaProcessorService
   ],
   exports: [CoursesService, TestsService, NotificationsGateway],
