@@ -65,6 +65,7 @@ export class MediaProcessorService implements OnModuleInit {
         .noVideo() // Perfectly safe here, isolated instance
         .audioCodec('libmp3lame')
         .audioBitrate('128k')
+        .audioFrequency(16000)
         .on('end', () => resolve())
         .on('error', (err: any) => {
           this.logger.error(`Audio extraction error: ${err.message}`);

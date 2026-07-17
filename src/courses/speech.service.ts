@@ -1,98 +1,109 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as speech from '@google-cloud/speech';
 import * as fs from 'fs';
 
 @Injectable()
 export class SpeechService {
   private readonly logger = new Logger(SpeechService.name);
-  
-  // We grab the API key directly from your environment variables
-  private apiKey = process.env.GOOGLE_SPEECH_API_KEY;
+  private speechClient: speech.v1.SpeechClient;
+
+  constructor() {
+    // The Google library automatically detects the GOOGLE_APPLICATION_CREDENTIALS 
+    // environment variable from your .env file to authorize requests.
+    this.speechClient = new speech.v1.SpeechClient();
+  }
 
   async transcribeAudio(audioFilePath: string): Promise<string> {
-    this.logger.log(`Starting transcription via REST for: ${audioFilePath}`);
+    this.logger.log(`Starting dual-language parallel transcription for: ${audioFilePath}`);
 
     try {
       // 1. Read and encode the audio file
       const fileBuffer = fs.readFileSync(audioFilePath);
       const audioBytes = fileBuffer.toString('base64');
 
-      // 2. Configure the HTTP Payload
-      const payload = {
-        audio: {
-          content: audioBytes,
-        },
-        config: {
-          encoding: 'MP3',
-          sampleRateHertz: 16000, 
-          languageCode: 'en-US', 
-          enableWordTimeOffsets: true, 
-        },
-      };
+      // 2. Try Bangla transcription first (as it is the most common language)
+      this.logger.log('Attempting Bangla transcription...');
+      const banglaRes = await this.runTranscription(audioBytes, 'bn-BD');
+      const bnConfidence = this.getAverageConfidence(banglaRes);
 
-      // 3. Make the POST request directly to the REST endpoint using the API Key
-      this.logger.log('Sending request to Google REST API...');
-      
-      const response = await fetch(`https://speech.googleapis.com/v1/speech:longrunningrecognize?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      let bestResponse = banglaRes;
+      let chosenLang = 'Bangla';
 
-      const operationData = await response.json();
+      // 3. If Bangla confidence is low (< 0.80), fall back to English transcription
+      if (bnConfidence < 0.80) {
+        this.logger.log(`Bangla confidence is low (${bnConfidence.toFixed(4)}). Attempting English fallback...`);
+        try {
+          const englishRes = await this.runTranscription(audioBytes, 'en-US');
+          const enConfidence = this.getAverageConfidence(englishRes);
+          this.logger.log(`English transcription completed with confidence: ${enConfidence.toFixed(4)}`);
 
-      if (operationData.error) {
-        throw new Error(`Google API Error: ${operationData.error.message}`);
+          if (enConfidence > bnConfidence) {
+            bestResponse = englishRes;
+            chosenLang = 'English';
+          }
+        } catch (enErr) {
+          this.logger.warn('English fallback transcription failed, staying with Bangla results.', enErr);
+        }
+      } else {
+        this.logger.log(`Bangla transcription accepted with high confidence: ${bnConfidence.toFixed(4)}`);
       }
 
-      const operationName = operationData.name;
-      this.logger.log(`Operation started with ID: ${operationName}. Polling for completion...`);
+      this.logger.log(`Selected transcription language: ${chosenLang}`);
 
-      // 4. Poll the operation endpoint until Google finishes processing
-      const transcript = await this.pollForResults(operationName);
-      
+      // Log the raw chosen response payload
+      console.log("=== RAW GOOGLE SPEECH RESPONSE ===");
+      console.log(JSON.stringify(bestResponse, null, 2));
+      console.log("==================================");
+
+      // 4. Aggregate the individual text blocks into a uniform string
+      const transcription = bestResponse.results
+        ?.map(result => result.alternatives?.[0]?.transcript)
+        .join('\n') || '';
+
+      // Map and log the aggregated text block to the console as well
+      console.log("=== EXTRACTED TRANSCRIPT BLOCK ===");
+      console.log(transcription);
+      console.log("==================================");
+
       this.logger.log('Transcription completed successfully.');
-      return transcript;
+      return transcription;
 
     } catch (error) {
-      this.logger.error('Speech-to-Text API failed:', error);
+      this.logger.error('Google Speech-to-Text API pipeline failed:', error);
       throw error;
     }
   }
 
-  /**
-   * Helper function to wait for the long-running operation to finish
-   */
-  private async pollForResults(operationName: string): Promise<string> {
-    let isComplete = false;
-    let finalTranscript = '';
+  private async runTranscription(audioBytes: string, langCode: string) {
+    const request = {
+      audio: {
+        content: audioBytes,
+      },
+      config: {
+        encoding: 'MP3' as const,
+        sampleRateHertz: 16000,
+        languageCode: langCode,
+        enableWordTimeOffsets: true,
+      },
+    };
+    const [operation] = await this.speechClient.longRunningRecognize(request);
+    const [response] = await operation.promise();
+    return response;
+  }
 
-    while (!isComplete) {
-      // Wait 5 seconds between checks to avoid spamming the API
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      this.logger.log('Checking operation status...');
-
-      const checkResponse = await fetch(`https://speech.googleapis.com/v1/operations/${operationName}?key=${this.apiKey}`);
-      const checkData = await checkResponse.json();
-
-      if (checkData.error) {
-        throw new Error(checkData.error.message);
-      }
-
-      if (checkData.done) {
-        isComplete = true;
-        
-        // Log the raw data so you can see the timestamps!
-        console.log("=== RAW GOOGLE SPEECH RESPONSE ===");
-        console.log(JSON.stringify(checkData.response, null, 2));
-        console.log("==================================");
-
-        // Combine the transcript chunks
-        finalTranscript = checkData.response?.results
-          ?.map((result: any) => result.alternatives?.[0]?.transcript)
-          .join('\n') || '';
+  private getAverageConfidence(response: any): number {
+    if (!response || !response.results || response.results.length === 0) {
+      return 0;
+    }
+    let totalConfidence = 0;
+    let count = 0;
+    for (const result of response.results) {
+      const alternative = result.alternatives?.[0];
+      if (alternative && typeof alternative.confidence === 'number') {
+        totalConfidence += alternative.confidence;
+        count++;
       }
     }
-
-    return finalTranscript;
+    return count > 0 ? totalConfidence / count : 0;
   }
 }

@@ -190,7 +190,8 @@ export class TestsService {
     if (test.testType === 'Standalone') {
       const now = new Date();
       if (test.startTime && now < test.startTime) throw new BadRequestException('Exam has not started yet');
-      if (test.endTime && now > test.endTime) throw new BadRequestException('Exam has ended');
+      const gracePeriodMs = 60 * 1000; // 1 minute grace period
+      if (test.endTime && now.getTime() > test.endTime.getTime() + gracePeriodMs) throw new BadRequestException('Exam has ended');
       
       // Ensure enrolled
       if (test.course) {
@@ -315,7 +316,6 @@ export class TestsService {
           
           console.log(`[Media Processor] Assets successfully extracted for test-${test.id}`);
           
-          // 2. NOW CALL GOOGLE SPEECH HERE!
           try {
             // assets.audioPath is the direct path to the new MP3 file we just made
             const transcript = await this.speechService.transcribeAudio(assets.audioPath);

@@ -40,12 +40,15 @@ export class ExamSchedulerService {
       this.logger.log(`Exam ${exam.id} (${exam.title}) transitioned to active`);
     }
 
+    const gracePeriodMs = 60 * 1000;
+    const finalizationThreshold = new Date(now.getTime() - gracePeriodMs);
+
     // 2. Process expired active exams
     const expiredExams = await this.testRepository.find({
       where: {
         testType: 'Standalone',
         status: 'active',
-        endTime: LessThanOrEqual(now),
+        endTime: LessThanOrEqual(finalizationThreshold),
       },
       relations: { course: true },
     });
