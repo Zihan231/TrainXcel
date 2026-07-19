@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, LessThan, MoreThanOrEqual, ILike } from 'typeorm';
+import { Repository, Like, LessThan, MoreThanOrEqual, ILike, Not, IsNull } from 'typeorm';
 import { Course } from './entities/course.entity';
 import { Lesson } from './entities/lesson.entity';
 import { Category } from './entities/category.entity';
@@ -55,7 +55,79 @@ export class CoursesService {
     }
   }
 
+  private async cleanupPhysicalFilesForLesson(lessonId: number) {
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId },
+      withDeleted: true,
+      relations: {
+        tests: {
+          submissions: {
+            answers: true
+          }
+        }
+      }
+    });
+    if (!lesson) return;
+    if (lesson.materialLink) this.deletePhysicalFile(lesson.materialLink);
+    
+    for (const test of lesson.tests || []) {
+      if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+      for (const submission of test.submissions || []) {
+        for (const answer of submission.answers || []) {
+          if (typeof answer.providedAnswer === 'string' && answer.providedAnswer.startsWith('/uploads/')) {
+            this.deletePhysicalFile(answer.providedAnswer);
+          }
+        }
+      }
+    }
+  }
 
+  private async cleanupPhysicalFilesForCourse(courseId: number) {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      withDeleted: true,
+      relations: {
+        lessons: {
+          tests: {
+            submissions: {
+              answers: true
+            }
+          }
+        },
+        tests: {
+          submissions: {
+            answers: true
+          }
+        }
+      }
+    });
+    if (!course) return;
+
+    for (const lesson of course.lessons || []) {
+      if (lesson.materialLink) this.deletePhysicalFile(lesson.materialLink);
+      for (const test of lesson.tests || []) {
+        if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+        for (const submission of test.submissions || []) {
+          for (const answer of submission.answers || []) {
+            if (typeof answer.providedAnswer === 'string' && answer.providedAnswer.startsWith('/uploads/')) {
+              this.deletePhysicalFile(answer.providedAnswer);
+            }
+          }
+        }
+      }
+    }
+    
+    for (const test of course.tests || []) {
+      if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+      for (const submission of test.submissions || []) {
+        for (const answer of submission.answers || []) {
+          if (typeof answer.providedAnswer === 'string' && answer.providedAnswer.startsWith('/uploads/')) {
+            this.deletePhysicalFile(answer.providedAnswer);
+          }
+        }
+      }
+    }
+  }
 
   private async generateNextCourseId(): Promise<string> {
     const lastCourse = await this.courseRepository.findOne({
@@ -366,16 +438,8 @@ export class CoursesService {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
-    // Clean up physical files for all lessons of this course
-    const lessons = await this.lessonRepository.find({
-      where: { course: { id: course.id } },
-      withDeleted: true,
-    });
-    for (const l of lessons) {
-      if (l.materialLink) {
-        this.deletePhysicalFile(l.materialLink);
-      }
-    }
+    // Clean up all physical files associated with the course, its lessons, and tests
+    await this.cleanupPhysicalFilesForCourse(course.id);
 
     await this.courseRepository.delete(course.id);
     return { message: 'Course permanently deleted' };
@@ -667,9 +731,8 @@ export class CoursesService {
       }
     }
 
-    if (lesson.materialLink) {
-      this.deletePhysicalFile(lesson.materialLink);
-    }
+    // Clean up physical files for the lesson and its tests
+    await this.cleanupPhysicalFilesForLesson(lesson.id);
 
     await this.lessonRepository.delete(lesson.id);
     return { message: 'Lesson permanently deleted' };
@@ -1303,12 +1366,30 @@ export class CoursesService {
       throw new ForbiddenException('Only admin and employee users can empty the recycle bin');
     }
 
+    // Find all soft-deleted lessons and clean up physical files
+    const softDeletedLessons = await this.lessonRepository.find({
+      where: { deletedAt: Not(IsNull()) },
+      withDeleted: true,
+    });
+    for (const l of softDeletedLessons) {
+      await this.cleanupPhysicalFilesForLesson(l.id);
+    }
+    
     // Hard-delete all soft-deleted lessons
     await this.lessonRepository.createQueryBuilder()
       .delete()
       .from(Lesson)
       .where('deletedAt IS NOT NULL')
       .execute();
+
+    // Find all soft-deleted courses and clean up physical files
+    const softDeletedCourses = await this.courseRepository.find({
+      where: { deletedAt: Not(IsNull()) },
+      withDeleted: true,
+    });
+    for (const c of softDeletedCourses) {
+      await this.cleanupPhysicalFilesForCourse(c.id);
+    }
 
     // Hard-delete all soft-deleted courses
     await this.courseRepository.createQueryBuilder()

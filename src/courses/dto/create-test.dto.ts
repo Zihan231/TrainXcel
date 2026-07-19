@@ -31,6 +31,10 @@ export class CreateTestDto {
   @IsEnum(['Lesson', 'Course', 'Standalone'])
   testType: string;
 
+  @IsString()
+  @IsOptional()
+  referenceScript?: string;
+
   @IsNumber()
   @IsOptional()
   courseId?: number;

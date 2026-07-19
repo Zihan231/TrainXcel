@@ -19,6 +19,9 @@ export class Test {
   @Column({ default: 'Lesson' })
   testType: string;
 
+  @Column({ type: 'text', nullable: true })
+  referenceScript?: string;
+
   @Column({ type: 'timestamp', nullable: true })
   startTime: Date;
 

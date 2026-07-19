@@ -21,8 +21,10 @@ import { NotificationsController } from './notifications.controller';
 import { ExamSchedulerService } from './exam-scheduler.service';
 
 import { MediaProcessorService } from './media-processor.service';
-import { SpeechService } from './speech.service';
+// import { SpeechService } from './speech.service';
 import { TestsController } from './tests.controller';
+import { GeminiAnalysisService } from './gemini-analysis.service';
+import { CloudStorageService } from './cloud-storage.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Course, Lesson, Category, Enrollment, User, Test, Question, TestSubmission, SubmissionAnswer, Notification]),
@@ -36,8 +38,10 @@ import { TestsController } from './tests.controller';
     TestsService, 
     ExamSchedulerService, 
     NotificationsGateway,
-    SpeechService,
-    MediaProcessorService
+    // SpeechService,
+    MediaProcessorService,
+    GeminiAnalysisService,
+    CloudStorageService,
   ],
   exports: [CoursesService, TestsService, NotificationsGateway],
 })
