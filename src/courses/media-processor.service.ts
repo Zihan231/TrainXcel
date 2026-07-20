@@ -83,7 +83,7 @@ export class MediaProcessorService implements OnModuleInit {
       ffmpeg(inputPath)
         .output(path.join(snapshotDir, 'snapshot_%03d.jpg'))
         .noAudio() // Strips audio to speed up frame processing
-        .videoFilters('fps=1/10')
+        .videoFilters('fps=1/20')
         .on('end', () => resolve())
         .on('error', (err: any) => {
           this.logger.error(`Snapshot extraction error: ${err.message}`);

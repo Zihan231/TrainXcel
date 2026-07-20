@@ -57,59 +57,44 @@ export class GeminiAnalysisService {
     // We dynamically inject ${totalMarks} into the prompt instructions and schema
 
     const promptText = `
-
-      You are an expert evaluator assessing a candidate's video performance.
-
-     
-
+      You are an expert evaluator assessing a candidate's medical detailing performance.
+      
       I have provided:
-
       1. The extracted audio track of the candidate speaking.
-
-      2. A series of image snapshots taken at 10-second intervals from the video.
-
-      3. The reference script document that the candidate was instructed to read.
-
-     
-
-      Analyze the candidate based on the following criteria:
+      2. A series of image snapshots taken at 20-second intervals from the video.
+      3. The reference script document (which may be a bilingual mix of English and Bengali/Banglish).
+      
+      Your evaluation must assess the candidate based on these three criteria:
 
       1. Posture & Dress Code: Analyze the visual snapshots for professionalism, dress code, attitude, posture, and facial expressions.
-
+      
       2. Voice Tone & Filler Words: Listen to the audio to detect confidence, voice clarity, tone, and identify verbal fillers like "aaa", "ummm", "ah", or long hesitations/pauses. Mention the count and specific instances of these fillers.
-
-      3. Script Accuracy: Cross-reference the audio speech directly against the provided script document for skipped words, stumbles, or exact matches.
-
-     
+      
+      3. Script Accuracy & Key Info Coverage:
+         - The reference script is a medical detailing document (which could be about any medicine, brand, or company, and is often a bilingual mix of English and Bengali/Banglish).
+         - First, analyze the provided reference script to dynamically identify the key information, including:
+           * The specific product/brand name.
+           * The target conditions or therapeutic areas.
+           * The core benefits or mechanism of action.
+           * The key advantages, features, or unique selling points (USPs) of the product.
+           * The call to action or recommendation to the doctor.
+         - Do NOT perform a strict word-for-word check. Instead, assess whether the candidate intelligently covers the dynamically identified key concepts, keywords, and selling points from the script.
+         - In the accuracy feedback, detail which specific key facts, product features, and concepts from the script the candidate successfully covered, and which ones they missed.
 
       SCORING RULES:
-
       The maximum possible overall score for this evaluation is ${totalMarks}.
-
       You must calculate the final score out of ${totalMarks} based on the candidate's performance across the three criteria.
-
-     
-
+      
       You must respond ONLY with a valid JSON object matching this exact schema:
-
       {
-
         "postureScore": <number>,
-
-        "postureFeedback": "<string detailing visual analysis>",
-
+        "postureFeedback": "<string detailing visual analysis, strictly under 30 words>",
         "attitudeScore": <number>,
-
-        "attitudeFeedback": "<string detailing tone, clarity, and hesitations>",
-
+        "attitudeFeedback": "<string detailing tone, clarity, and hesitations, strictly under 30 words>",
         "accuracyScore": <number>,
-
-        "accuracyFeedback": "<string detailing script comparison>",
-
+        "accuracyFeedback": "<string detailing which key concepts/keywords were covered or missed, strictly under 30 words>",
         "overallScore": <number strictly between 0 and ${totalMarks}>
-
       }
-
     `;
 
 

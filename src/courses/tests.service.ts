@@ -350,8 +350,8 @@ export class TestsService {
             console.log(`[Cloud Storage] Upload complete! Audio: ${audioGcsUri}, Snapshots: ${snapshotGcsUris.length}`);
 
             // 2. Setup Script details
-            let scriptGcsUri = 'gs://trxcel/default-script.pdf'; 
-            let scriptMimeType = 'application/pdf'; 
+            let scriptGcsUri = ''; 
+            let scriptMimeType = ''; 
             let scriptText: string | undefined;
 
             if (test.referenceScript) {
@@ -395,8 +395,12 @@ export class TestsService {
                   console.log(`[Cloud Storage] Extracted text from script locally, skipping GCS upload.`);
                 }
               } else {
-                console.warn(`[Cloud Storage] Reference script not found locally at: ${localPath}`);
+                console.log(`[Cloud Storage] Reference script path not found on disk, treating as plain text instruction.`);
+                scriptText = test.referenceScript;
               }
+            } else {
+              console.log(`[Cloud Storage] No reference script provided, setting fallback prompt text.`);
+              scriptText = "No reference script was provided for this test. Evaluate the candidate's general communication structure and flow.";
             }
 
             // 3. Trigger Gemini for Video Evaluation
