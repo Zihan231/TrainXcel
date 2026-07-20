@@ -239,6 +239,17 @@ export class TestsService {
       submission.submittedAt = new Date();
     }
 
+    if (!submission.isDraft) {
+      for (const question of test.questions) {
+        if (question.type === 'Video') {
+          const provided = submitDto.answers.find(ans => ans.questionId === question.id);
+          if (!provided || !provided.providedAnswer || String(provided.providedAnswer).trim() === '' || provided.providedAnswer === 'Uploading...') {
+            throw new BadRequestException(`A video response is required for question: "${question.questionText}"`);
+          }
+        }
+      }
+    }
+
     let totalMarks = 0;
     let needsManualEvaluation = false;
 
