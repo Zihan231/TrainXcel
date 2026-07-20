@@ -546,13 +546,15 @@ export class CoursesService {
           notification.message = `A new lesson "${createLessonDto.title}" has been published in ${course.name}.`;
           notification.user = enrollment.user;
           notification.actionLink = `/courses/${course.courseId}`;
-          await this.notificationRepository.save(notification);
+          const savedNotif = await this.notificationRepository.save(notification);
 
           // Send Real-time alert
           this.notificationsGateway.sendNotificationToUser(enrollment.user.userId, {
-            message: notification.message,
-            actionLink: notification.actionLink,
-            createdAt: notification.createdAt,
+            id: savedNotif.id,
+            message: savedNotif.message,
+            actionLink: savedNotif.actionLink,
+            createdAt: savedNotif.createdAt,
+            isRead: false,
           });
         }
       }

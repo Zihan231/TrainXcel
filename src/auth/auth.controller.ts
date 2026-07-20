@@ -43,6 +43,13 @@ export class AuthController {
     return this.authService.getUserProfile(req.user.userId);
   }
 
+  @Get('token')
+  @UseGuards(JwtAuthGuard)
+  async getSocketToken(@Req() req: any) {
+    const token = req.cookies?.['jwt'] || req.headers.authorization?.split(' ')[1];
+    return { token };
+  }
+
   @Get('users')
   @UseGuards(JwtAuthGuard)
   async getUsers(

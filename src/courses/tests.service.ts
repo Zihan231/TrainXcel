@@ -108,12 +108,14 @@ export class TestsService {
           notification.message = `A new test "${test.title}" is available in course ${course.name}.`;
           notification.user = enrollment.user;
           notification.actionLink = `/courses/${course.courseId}`;
-          await this.notificationRepo.save(notification);
+          const savedNotif = await this.notificationRepo.save(notification);
 
           this.notificationsGateway.sendNotificationToUser(enrollment.user.userId, {
-            message: notification.message,
-            actionLink: notification.actionLink,
-            createdAt: notification.createdAt,
+            id: savedNotif.id,
+            message: savedNotif.message,
+            actionLink: savedNotif.actionLink,
+            createdAt: savedNotif.createdAt,
+            isRead: false,
           });
         }
       }
@@ -126,6 +128,7 @@ export class TestsService {
     return this.testRepo.find({
       where: { lesson: { id: lessonId } },
       relations: { questions: true },
+      order: { id: 'DESC' },
     });
   }
 
@@ -144,6 +147,7 @@ export class TestsService {
     return this.testRepo.find({
       where: { course: { id: course.id }, testType: 'Course' },
       relations: { questions: true },
+      order: { id: 'DESC' },
     });
   }
 
@@ -443,6 +447,31 @@ export class TestsService {
             });
 
             console.log(`[Database] Submission ${saved.id} successfully updated with AI score: ${evaluationResult.overallScore}`);
+
+            // Send notification to the student
+            try {
+              const fullSubmission = await this.submissionRepo.findOne({
+                where: { id: saved.id },
+                relations: { user: true, test: true }
+              });
+              if (fullSubmission && fullSubmission.user) {
+                const notification = new Notification();
+                notification.message = `Your test "${fullSubmission.test.title}" has been evaluated by AI.`;
+                notification.user = fullSubmission.user;
+                notification.actionLink = `/dashboard?tab=my-learning`;
+                const savedNotif = await this.notificationRepo.save(notification);
+
+                this.notificationsGateway.sendNotificationToUser(fullSubmission.user.userId, {
+                  id: savedNotif.id,
+                  message: savedNotif.message,
+                  actionLink: savedNotif.actionLink,
+                  createdAt: savedNotif.createdAt,
+                  isRead: false
+                });
+              }
+            } catch (notifErr) {
+              console.error(`[Notification] Failed to notify user for AI evaluation:`, notifErr);
+            }
             
             // Delete the temporary local files inside VdoEva
             try {
@@ -516,8 +545,34 @@ export class TestsService {
     
     // Save answers
     await this.answerRepo.save(submission.answers);
-    
-    return this.submissionRepo.save(submission);
+    const savedSub = await this.submissionRepo.save(submission);
+
+    // Send notification to the student
+    try {
+      const fullSubmission = await this.submissionRepo.findOne({
+        where: { id: savedSub.id },
+        relations: { user: true, test: true }
+      });
+      if (fullSubmission && fullSubmission.user) {
+        const notification = new Notification();
+        notification.message = `Your submission for test "${fullSubmission.test.title}" has been evaluated.`;
+        notification.user = fullSubmission.user;
+        notification.actionLink = `/dashboard?tab=my-learning`;
+        const savedNotif = await this.notificationRepo.save(notification);
+
+        this.notificationsGateway.sendNotificationToUser(fullSubmission.user.userId, {
+          id: savedNotif.id,
+          message: savedNotif.message,
+          actionLink: savedNotif.actionLink,
+          createdAt: savedNotif.createdAt,
+          isRead: false
+        });
+      }
+    } catch (notifErr) {
+      console.error(`[Notification] Failed to notify user for manual evaluation:`, notifErr);
+    }
+
+    return savedSub;
   }
 
   async getLeaderboard(lessonId: number) {
