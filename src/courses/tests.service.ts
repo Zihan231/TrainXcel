@@ -636,6 +636,20 @@ export class TestsService {
     return leaderboard.slice(0, 5);
   }
 
+  private deletePhysicalFile(fileLink: string) {
+    if (fileLink && fileLink.startsWith('/uploads/')) {
+      const filePath = path.resolve('.', fileLink.replace(/^[/\\]+/, ''));
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`[Trash Cleanup] Successfully deleted orphaned reference script: ${filePath}`);
+        }
+      } catch (err) {
+        console.error(`[Trash Cleanup] Failed to delete orphaned reference script: ${filePath}`, err);
+      }
+    }
+  }
+
   async updateQuestion(
     questionId: number,
     data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string; referenceScript?: string },
@@ -654,6 +668,22 @@ export class TestsService {
     if (data.evaluationType !== undefined) question.evaluationType = data.evaluationType;
 
     if (data.referenceScript !== undefined && question.type === 'Video' && question.test) {
+      const oldScript = question.test.referenceScript;
+      
+      // If there was an old file path, and it is different from the new script, delete it!
+      if (oldScript && oldScript !== data.referenceScript) {
+        const isOldFile = oldScript.startsWith("http") || 
+                          oldScript.startsWith("/") ||
+                          (oldScript.length < 200 && /\.(pdf|docx|doc|pptx|ppt)$/i.test(oldScript));
+        if (isOldFile) {
+          let pathPart = oldScript;
+          if (pathPart.includes('/uploads/')) {
+            pathPart = '/uploads/' + pathPart.split('/uploads/').pop();
+          }
+          this.deletePhysicalFile(pathPart);
+        }
+      }
+
       question.test.referenceScript = data.referenceScript || undefined;
       await this.testRepo.save(question.test);
     }
