@@ -19,10 +19,9 @@ export class MediaProcessorService implements OnModuleInit {
     });
   }
 
-  async processVideoAssets(filename: string, testId: number, lessonId?: number): Promise<{ audioPath: string; snapshotDir: string }> {
+  async processVideoAssets(filename: string, submissionId: number): Promise<{ audioPath: string; snapshotDir: string }> {
     const inputVideoPath = path.resolve('./uploads/test-videos', filename);
-    const folderId = lessonId ?? testId;
-    const outputDir = path.resolve(`./uploads/VdoEva/${folderId}`);
+    const outputDir = path.resolve(`./uploads/VdoEva/submission_${submissionId}`);
     const audioDir = path.join(outputDir, 'audio');
     const snapshotDir = path.join(outputDir, 'snap');
     const audioPath = path.join(audioDir, 'extracted_audio.mp3');
@@ -37,7 +36,7 @@ export class MediaProcessorService implements OnModuleInit {
       fs.mkdirSync(snapshotDir, { recursive: true });
     }
 
-    this.logger.log(`Starting parallel extraction for test ID: ${testId}`);
+    this.logger.log(`Starting parallel extraction for submission ID: ${submissionId}`);
 
     // 2 & 3. Split into two explicit, parallel processes to avoid flag bleeding
     try {
@@ -50,7 +49,7 @@ export class MediaProcessorService implements OnModuleInit {
       return { audioPath, snapshotDir };
 
     } catch (err) {
-      this.logger.error(`Media processing failed for test ${testId}`, err);
+      this.logger.error(`Media processing failed for submission ${submissionId}`, err);
       throw new InternalServerErrorException('Failed to process video assets');
     }
   }

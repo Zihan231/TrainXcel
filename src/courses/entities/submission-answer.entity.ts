@@ -16,6 +16,9 @@ export class SubmissionAnswer {
   @Column({ type: 'text', nullable: true })
   evaluatorComment: string;
 
+  @Column({ nullable: true })
+  evaluatedBy: string;
+
   @ManyToOne(() => TestSubmission, (submission) => submission.answers, { onDelete: 'CASCADE' })
   submission: TestSubmission;
 

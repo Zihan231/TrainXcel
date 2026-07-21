@@ -31,7 +31,7 @@ export class CloudStorageService {
     }
   }
 
-  async uploadSnapshots(snapshotDir: string, testId: number): Promise<string[]> {
+  async uploadSnapshots(snapshotDir: string, submissionId: number): Promise<string[]> {
     try {
       const files = fs.readdirSync(snapshotDir);
       
@@ -40,17 +40,17 @@ export class CloudStorageService {
         .filter(file => file.endsWith('.jpg'))
         .map(file => {
           const filePath = path.join(snapshotDir, file);
-          const destination = `evaluations/${testId}/snapshots/${file}`;
+          const destination = `evaluations/submission_${submissionId}/snapshots/${file}`;
           return this.uploadFile(filePath, destination);
         });
 
       // Wait for all uploads to finish simultaneously
       const gcsUris = await Promise.all(uploadPromises);
       
-      this.logger.log(`Successfully uploaded ${gcsUris.length} snapshots for test ID: ${testId}`);
+      this.logger.log(`Successfully uploaded ${gcsUris.length} snapshots for submission ID: ${submissionId}`);
       return gcsUris;
     } catch (error) {
-      this.logger.error(`Failed to process snapshot directory for test ID: ${testId}`, error);
+      this.logger.error(`Failed to process snapshot directory for submission ID: ${submissionId}`, error);
       throw error;
     }
   }

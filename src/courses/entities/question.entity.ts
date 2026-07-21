@@ -25,6 +25,9 @@ export class Question {
   @Column({ type: 'float', default: 0 })
   marks: number;
 
+  @Column({ default: 'AI' })
+  evaluationType: string;
+
   @ManyToOne(() => Test, (test) => test.questions, { onDelete: 'CASCADE' })
   test: Test;
 

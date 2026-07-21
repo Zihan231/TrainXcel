@@ -101,7 +101,7 @@ export class TestsController {
   @Put('questions/:questionId')
   async updateQuestion(
     @Param('questionId') questionId: string,
-    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number },
+    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string },
     @Req() req: any,
   ) {
     const { role } = req.user;

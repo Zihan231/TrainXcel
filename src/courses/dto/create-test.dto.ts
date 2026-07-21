@@ -18,6 +18,10 @@ export class QuestionDto {
 
   @IsNumber()
   marks: number;
+
+  @IsString()
+  @IsOptional()
+  evaluationType?: string;
 }
 
 export class CreateTestDto {

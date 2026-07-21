@@ -87,6 +87,7 @@ export class TestsService {
       question.questionText = q.questionText;
       question.type = q.type;
       question.marks = q.marks;
+      question.evaluationType = q.evaluationType || 'AI';
       if (q.type === 'MCQ') {
         question.options = q.options || [];
         question.correctAnswers = q.correctAnswers || [];
@@ -271,6 +272,7 @@ export class TestsService {
       if (!submission.isDraft) {
         if (question.type === 'MCQ') {
           // Auto evaluation
+          subAnswer.evaluatedBy = 'System';
           const provided = Array.isArray(ans.providedAnswer) ? ans.providedAnswer : [ans.providedAnswer];
           const correct = question.correctAnswers || [];
           
@@ -337,13 +339,17 @@ export class TestsService {
         const videoQuestion = test.questions.find(quest => quest.id === videoAnswer.questionId);
         if (!videoQuestion) return;
 
+        if (videoQuestion.evaluationType === 'Manual') {
+          console.log(`[TestsService] Video question id=${videoQuestion.id} is configured for Manual evaluation. Skipping AI Gemini flow.`);
+          return;
+        }
+
         this.mediaProcessorService.processVideoAssets(
           filename, 
-          test.id,
-          test.lesson?.id
+          saved.id
         ).then(async (assets) => { 
           
-          console.log(`[Media Processor] Assets successfully extracted for test-${test.id}`);
+          console.log(`[Media Processor] Assets successfully extracted for submission-${saved.id}`);
           
           try {
             /* 
@@ -354,12 +360,12 @@ export class TestsService {
             */
 
             // 1. Upload extracted assets to Google Cloud Storage (Parallel)
-            console.log(`[Cloud Storage] Uploading assets to GCS for test-${test.id}...`);
-            const audioDestination = `evaluations/${test.id}/audio/extracted_audio.mp3`;
+            console.log(`[Cloud Storage] Uploading assets to GCS for submission-${saved.id}...`);
+            const audioDestination = `evaluations/submission_${saved.id}/audio/extracted_audio.mp3`;
             
             const [audioGcsUri, snapshotGcsUris] = await Promise.all([
               this.cloudStorageService.uploadFile(assets.audioPath, audioDestination),
-              this.cloudStorageService.uploadSnapshots(assets.snapshotDir, test.id)
+              this.cloudStorageService.uploadSnapshots(assets.snapshotDir, saved.id)
             ]);
             
             console.log(`[Cloud Storage] Upload complete! Audio: ${audioGcsUri}, Snapshots: ${snapshotGcsUris.length}`);
@@ -444,7 +450,8 @@ export class TestsService {
               console.log(`[Database] Updating Answer ID ${savedSubAnswer.id} with marks: ${evaluationResult.overallScore}, comment length: ${commentString.length}`);
               await this.answerRepo.update(savedSubAnswer.id, {
                 marksAwarded: evaluationResult.overallScore,
-                evaluatorComment: commentString
+                evaluatorComment: commentString,
+                evaluatedBy: 'AI'
               });
             } else {
               console.error(`[Database] Could not find SubmissionAnswer for submission: ${saved.id}, question: ${videoQuestion.id}`);
@@ -547,6 +554,7 @@ export class TestsService {
         }
         ans.marksAwarded = ev.marksAwarded;
         ans.evaluatorComment = ev.evaluatorComment || '';
+        ans.evaluatedBy = 'Human';
         newMarksAdded += ev.marksAwarded;
       }
     }
@@ -629,7 +637,7 @@ export class TestsService {
 
   async updateQuestion(
     questionId: number,
-    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number },
+    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string },
     role: string,
   ) {
     if (role !== 'admin' && role !== 'employee') {
@@ -642,6 +650,7 @@ export class TestsService {
     if (data.options !== undefined) question.options = data.options;
     if (data.correctAnswers !== undefined) question.correctAnswers = data.correctAnswers;
     if (data.marks !== undefined) question.marks = data.marks;
+    if (data.evaluationType !== undefined) question.evaluationType = data.evaluationType;
 
     return this.questionRepo.save(question);
   }
