@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { EvaluateCqDto } from './dto/evaluate-cq.dto';
+import { UpdateTestDto } from './dto/update-test.dto';
 
 @Controller('tests')
 @UseGuards(JwtAuthGuard)
@@ -101,7 +102,7 @@ export class TestsController {
   @Put('questions/:questionId')
   async updateQuestion(
     @Param('questionId') questionId: string,
-    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string },
+    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string; referenceScript?: string },
     @Req() req: any,
   ) {
     const { role } = req.user;
@@ -118,6 +119,16 @@ export class TestsController {
   }
 
  
+
+  @Put(':testId')
+  async updateTest(
+    @Param('testId') testId: string,
+    @Body() body: UpdateTestDto,
+    @Req() req: any,
+  ) {
+    const { role } = req.user;
+    return this.testsService.updateTest(+testId, body, role);
+  }
 
   @Post('standalone/:examId/finalize')
   async finalizeExam(@Param('examId') examId: string, @Req() req: any) {

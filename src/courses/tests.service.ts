@@ -17,6 +17,7 @@ import { NotificationsGateway } from './notifications.gateway';
 import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { EvaluateCqDto } from './dto/evaluate-cq.dto';
+import { UpdateTestDto } from './dto/update-test.dto';
 import { MediaProcessorService } from './media-processor.service';
 // import { SpeechService } from './speech.service';
 import { CloudStorageService } from './cloud-storage.service';
@@ -637,13 +638,13 @@ export class TestsService {
 
   async updateQuestion(
     questionId: number,
-    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string },
+    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string; referenceScript?: string },
     role: string,
   ) {
     if (role !== 'admin' && role !== 'employee') {
       throw new ForbiddenException('Only admin or employee can edit questions');
     }
-    const question = await this.questionRepo.findOne({ where: { id: questionId } });
+    const question = await this.questionRepo.findOne({ where: { id: questionId }, relations: { test: true } });
     if (!question) throw new NotFoundException('Question not found');
 
     if (data.questionText !== undefined) question.questionText = data.questionText;
@@ -651,6 +652,11 @@ export class TestsService {
     if (data.correctAnswers !== undefined) question.correctAnswers = data.correctAnswers;
     if (data.marks !== undefined) question.marks = data.marks;
     if (data.evaluationType !== undefined) question.evaluationType = data.evaluationType;
+
+    if (data.referenceScript !== undefined && question.type === 'Video' && question.test) {
+      question.test.referenceScript = data.referenceScript || undefined;
+      await this.testRepo.save(question.test);
+    }
 
     return this.questionRepo.save(question);
   }
@@ -666,5 +672,33 @@ export class TestsService {
       relations: { user: true, test: true },
       order: { submittedAt: 'DESC' },
     });
+  }
+
+  async updateTest(testId: number, dto: UpdateTestDto, role: string) {
+    if (role !== 'admin' && role !== 'employee') {
+      throw new ForbiddenException('Only admin or employee can edit test configuration');
+    }
+    const test = await this.testRepo.findOne({ where: { id: testId } });
+    if (!test) throw new NotFoundException('Test not found');
+
+    if (dto.title !== undefined) test.title = dto.title;
+    if (dto.description !== undefined) test.description = dto.description;
+    if (dto.referenceScript !== undefined) test.referenceScript = dto.referenceScript || undefined;
+    if (dto.startTime !== undefined) test.startTime = dto.startTime ? new Date(dto.startTime) : undefined as any;
+    if (dto.endTime !== undefined) test.endTime = dto.endTime ? new Date(dto.endTime) : undefined as any;
+
+    // Recalculate status for Standalone exams if times changed
+    if (test.testType === 'Standalone') {
+      const now = new Date();
+      if (test.startTime && now < test.startTime) {
+        test.status = 'scheduled';
+      } else if (test.endTime && now > test.endTime) {
+        test.status = 'completed';
+      } else {
+        test.status = 'active';
+      }
+    }
+
+    return this.testRepo.save(test);
   }
 }
