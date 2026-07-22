@@ -82,18 +82,20 @@ export class GeminiAnalysisService {
          - In the accuracy feedback, detail which specific key facts, product features, and concepts from the script the candidate successfully covered, and which ones they missed.
 
       SCORING RULES:
+      You must rate each of the three criteria (Posture & Dress Code, Voice Tone & Filler Words, Script Accuracy & Key Info Coverage) individually on a scale of 0 to ${totalMarks} (numbers between 0 and ${totalMarks}).
       The maximum possible overall score for this evaluation is ${totalMarks}.
-      You must calculate the final score out of ${totalMarks} based on the candidate's performance across the three criteria.
+      The overall score must be calculated as the mathematical average of the three criteria scores: (postureScore + attitudeScore + accuracyScore) / 3.
+      Round the overall score to 2 decimal places.
       
       You must respond ONLY with a valid JSON object matching this exact schema:
       {
-        "postureScore": <number>,
+        "postureScore": <number between 0 and ${totalMarks}>,
         "postureFeedback": "<string detailing visual analysis, strictly under 30 words>",
-        "attitudeScore": <number>,
+        "attitudeScore": <number between 0 and ${totalMarks}>,
         "attitudeFeedback": "<string detailing tone, clarity, and hesitations, strictly under 30 words>",
-        "accuracyScore": <number>,
+        "accuracyScore": <number between 0 and ${totalMarks}>,
         "accuracyFeedback": "<string detailing which key concepts/keywords were covered or missed, strictly under 30 words>",
-        "overallScore": <number strictly between 0 and ${totalMarks}>
+        "overallScore": <calculated overall score as a number between 0 and ${totalMarks}>
       }
     `;
 
