@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
 import { TestsService } from './tests.service';
 import { ExamSchedulerService } from './exam-scheduler.service';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -83,9 +83,13 @@ export class TestsController {
   }
 
   @Get('evaluations/pending')
-  async getPendingEvaluations(@Req() req: any) {
+  async getPendingEvaluations(
+    @Req() req: any,
+    @Query('lessonId') lessonId?: string,
+    @Query('testId') testId?: string,
+  ) {
     const { userId, role } = req.user;
-    return this.testsService.getPendingEvaluations(userId, role);
+    return this.testsService.getPendingEvaluations(userId, role, lessonId ? +lessonId : undefined, testId ? +testId : undefined);
   }
 
   @Put('evaluations')

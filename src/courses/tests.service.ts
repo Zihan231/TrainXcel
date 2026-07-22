@@ -527,11 +527,22 @@ export class TestsService {
     return saved;
   }
 
-  async getPendingEvaluations(userId: string, role: string) {
+  async getPendingEvaluations(userId: string, role: string, lessonId?: number, testId?: number) {
     if (role !== 'admin' && role !== 'employee') throw new ForbiddenException();
+
+    const whereCondition: any = { isDraft: false };
+    if (testId) {
+      whereCondition.test = { id: testId };
+    } else if (lessonId) {
+      whereCondition.test = { lesson: { id: lessonId } };
+    } else {
+      whereCondition.status = 'Pending Evaluation';
+    }
+
     return this.submissionRepo.find({
-      where: { status: 'Pending Evaluation', isDraft: false },
+      where: whereCondition,
       relations: { test: { lesson: { course: true }, course: true }, user: true, answers: { question: true } },
+      order: { createdAt: 'DESC' },
     });
   }
 
