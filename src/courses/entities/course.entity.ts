@@ -23,6 +23,9 @@ export class Course {
   @Column({ default: 'draft' })
   status: string; // 'active' | 'inactive' | 'draft'
 
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
   @ManyToOne(() => Category, (category) => category.courses, { onDelete: 'SET NULL', nullable: true })
   category: Category | null;
 

@@ -171,6 +171,16 @@ export class CoursesController {
     return this.coursesService.createCategory(createCategoryDto);
   }
 
+  @Delete('categories/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteCategory(@Param('id') id: string, @Req() req: any) {
+    const { role } = req.user;
+    if (role !== 'admin' && role !== 'employee') {
+      throw new ForbiddenException('Only admins and employees can delete categories');
+    }
+    return this.coursesService.deleteCategory(+id);
+  }
+
   // --- Courses ---
   @Get()
   @UseGuards(JwtAuthGuard)

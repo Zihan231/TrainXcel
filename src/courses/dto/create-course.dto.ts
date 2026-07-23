@@ -13,4 +13,8 @@ export class CreateCourseDto {
   @IsOptional()
   @IsIn(['active', 'inactive', 'draft'], { message: 'Status must be active, inactive, or draft' })
   status?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 }

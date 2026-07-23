@@ -25,6 +25,15 @@ export class Question {
   @Column({ type: 'float', default: 0 })
   marks: number;
 
+  @Column({ type: 'float', nullable: true })
+  postureMarks: number;
+
+  @Column({ type: 'float', nullable: true })
+  voiceMarks: number;
+
+  @Column({ type: 'float', nullable: true })
+  accuracyMarks: number;
+
   @Column({ default: 'AI' })
   evaluationType: string;
 

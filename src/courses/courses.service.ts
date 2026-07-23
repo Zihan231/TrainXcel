@@ -167,10 +167,25 @@ export class CoursesService {
   async createCategory(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const existing = await this.categoryRepository.findOne({ where: { name: createCategoryDto.name } });
     if (existing) {
-      throw new ConflictException('Category name already exists');
+      return existing;
     }
     const cat = this.categoryRepository.create(createCategoryDto);
     return this.categoryRepository.save(cat);
+  }
+
+  async deleteCategory(id: number): Promise<{ success: boolean; message: string }> {
+    const category = await this.categoryRepository.findOne({ where: { id } });
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+    // TypeORM should handle cascading or setting null depending on the relation if configured.
+    // If we want to prevent deletion when courses exist:
+    const coursesCount = await this.courseRepository.count({ where: { category: { id } } });
+    if (coursesCount > 0) {
+      throw new ConflictException('Cannot delete category because it is being used by existing courses.');
+    }
+    await this.categoryRepository.remove(category);
+    return { success: true, message: 'Category deleted successfully' };
   }
 
   // --- Course Logic ---

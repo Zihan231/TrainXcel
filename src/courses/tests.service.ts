@@ -88,6 +88,9 @@ export class TestsService {
       question.questionText = q.questionText;
       question.type = q.type;
       question.marks = q.marks;
+      if (q.postureMarks !== undefined) question.postureMarks = q.postureMarks;
+      if (q.voiceMarks !== undefined) question.voiceMarks = q.voiceMarks;
+      if (q.accuracyMarks !== undefined) question.accuracyMarks = q.accuracyMarks;
       question.evaluationType = q.evaluationType || 'AI';
       if (q.type === 'MCQ') {
         question.options = q.options || [];
@@ -160,6 +163,13 @@ export class TestsService {
       where: { test: { id: testId }, user: { id: user.id }, isDraft: false },
       relations: { answers: { question: true } },
       order: { createdAt: 'DESC' }
+    });
+  }
+
+  async getSubmissionById(submissionId: number) {
+    return this.submissionRepo.findOne({
+      where: { id: submissionId },
+      relations: { user: true, test: true, answers: { question: true } }
     });
   }
   
@@ -427,12 +437,18 @@ export class TestsService {
 
             // 3. Trigger Gemini for Video Evaluation
             console.log(`[Gemini AI] Starting evaluation...`);
+            const pMarks = videoQuestion.postureMarks ?? (videoQuestion.marks / 3);
+            const vMarks = videoQuestion.voiceMarks ?? (videoQuestion.marks / 3);
+            const aMarks = videoQuestion.accuracyMarks ?? (videoQuestion.marks / 3);
+
             const evaluationResult = await this.geminiAnalysisService.evaluateCandidate(
                audioGcsUri, 
                snapshotGcsUris, 
                scriptGcsUri,
                scriptMimeType,
-               videoQuestion.marks, // Dynamically passing total marks!
+               pMarks,
+               vMarks,
+               aMarks,
                scriptText
             );
             
@@ -663,7 +679,7 @@ export class TestsService {
 
   async updateQuestion(
     questionId: number,
-    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string; referenceScript?: string },
+    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; postureMarks?: number; voiceMarks?: number; accuracyMarks?: number; evaluationType?: string; referenceScript?: string },
     role: string,
   ) {
     if (role !== 'admin' && role !== 'employee') {
@@ -676,6 +692,9 @@ export class TestsService {
     if (data.options !== undefined) question.options = data.options;
     if (data.correctAnswers !== undefined) question.correctAnswers = data.correctAnswers;
     if (data.marks !== undefined) question.marks = data.marks;
+    if (data.postureMarks !== undefined) question.postureMarks = data.postureMarks;
+    if (data.voiceMarks !== undefined) question.voiceMarks = data.voiceMarks;
+    if (data.accuracyMarks !== undefined) question.accuracyMarks = data.accuracyMarks;
     if (data.evaluationType !== undefined) question.evaluationType = data.evaluationType;
 
     if (data.referenceScript !== undefined && question.type === 'Video' && question.test) {
@@ -741,5 +760,14 @@ export class TestsService {
     }
 
     return this.testRepo.save(test);
+  }
+
+  async deleteTest(testId: number): Promise<{ success: boolean; message: string }> {
+    const test = await this.testRepo.findOne({ where: { id: testId } });
+    if (!test) {
+      throw new NotFoundException('Test not found');
+    }
+    await this.testRepo.remove(test);
+    return { success: true, message: 'Test successfully deleted' };
   }
 }

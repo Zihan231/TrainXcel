@@ -37,25 +37,17 @@ export class GeminiAnalysisService {
 
 
   async evaluateCandidate(
-
     audioGcsUri: string,
-
     snapshotUris: string[],
-
     scriptDocumentGcsUri: string,
-
     scriptMimeType: string,      
-
-    totalMarks: number,
-    
+    postureMax: number,
+    voiceMax: number,
+    accuracyMax: number,
     scriptText?: string
-
   ): Promise<any> {
-
    
-
-    // We dynamically inject ${totalMarks} into the prompt instructions and schema
-
+    // We dynamically inject the max marks into the prompt instructions and schema
     const promptText = `
       You are an expert evaluator assessing a candidate's medical detailing performance.
       
@@ -82,20 +74,23 @@ export class GeminiAnalysisService {
          - In the accuracy feedback, detail which specific key facts, product features, and concepts from the script the candidate successfully covered, and which ones they missed.
 
       SCORING RULES:
-      You must rate each of the three criteria (Posture & Dress Code, Voice Tone & Filler Words, Script Accuracy & Key Info Coverage) individually on a scale of 0 to ${totalMarks} (numbers between 0 and ${totalMarks}).
-      The maximum possible overall score for this evaluation is ${totalMarks}.
-      The overall score must be calculated as the mathematical average of the three criteria scores: (postureScore + attitudeScore + accuracyScore) / 3.
+      You must rate each of the three criteria individually based on their specific maximum marks:
+      - Posture & Dress Code Score: A number between 0 and ${postureMax}
+      - Voice Tone & Filler Words Score: A number between 0 and ${voiceMax}
+      - Script Accuracy Score: A number between 0 and ${accuracyMax}
+
+      The overall score must be calculated as the mathematical sum of the three criteria scores: (postureScore + attitudeScore + accuracyScore).
       Round the overall score to 2 decimal places.
       
       You must respond ONLY with a valid JSON object matching this exact schema:
       {
-        "postureScore": <number between 0 and ${totalMarks}>,
+        "postureScore": <number between 0 and ${postureMax}>,
         "postureFeedback": "<string detailing visual analysis, strictly under 30 words>",
-        "attitudeScore": <number between 0 and ${totalMarks}>,
+        "attitudeScore": <number between 0 and ${voiceMax}>,
         "attitudeFeedback": "<string detailing tone, clarity, and hesitations, strictly under 30 words>",
-        "accuracyScore": <number between 0 and ${totalMarks}>,
+        "accuracyScore": <number between 0 and ${accuracyMax}>,
         "accuracyFeedback": "<string detailing which key concepts/keywords were covered or missed, strictly under 30 words>",
-        "overallScore": <calculated overall score as a number between 0 and ${totalMarks}>
+        "overallScore": <calculated overall sum score as a number>
       }
     `;
 
@@ -127,7 +122,7 @@ export class GeminiAnalysisService {
 
     try {
 
-      this.logger.log(`Dispatching multimodal payload to Gemini. Max marks: ${totalMarks}`);
+      this.logger.log(`Dispatching multimodal payload to Gemini. Max marks: P:${postureMax}, V:${voiceMax}, A:${accuracyMax}`);
 
      
 

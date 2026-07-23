@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, Delete, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
 import { TestsService } from './tests.service';
 import { ExamSchedulerService } from './exam-scheduler.service';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -106,7 +106,7 @@ export class TestsController {
   @Put('questions/:questionId')
   async updateQuestion(
     @Param('questionId') questionId: string,
-    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; evaluationType?: string; referenceScript?: string },
+    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; postureMarks?: number; voiceMarks?: number; accuracyMarks?: number; evaluationType?: string; referenceScript?: string },
     @Req() req: any,
   ) {
     const { role } = req.user;
@@ -122,6 +122,15 @@ export class TestsController {
     return this.testsService.getLessonSubmissions(+lessonId);
   }
 
+  @Get('submissions/:id')
+  async getSubmissionById(@Param('id') id: string, @Req() req: any) {
+    const { role } = req.user;
+    if (role === 'user') {
+      throw new ForbiddenException('Only admin and employee users can view full student submission details');
+    }
+    return this.testsService.getSubmissionById(+id);
+  }
+
  
 
   @Put(':testId')
@@ -132,6 +141,15 @@ export class TestsController {
   ) {
     const { role } = req.user;
     return this.testsService.updateTest(+testId, body, role);
+  }
+
+  @Delete(':testId')
+  async deleteTest(@Param('testId') testId: string, @Req() req: any) {
+    const { role } = req.user;
+    if (role !== 'admin' && role !== 'employee') {
+      throw new ForbiddenException('Only Admin or Employee can delete tests.');
+    }
+    return this.testsService.deleteTest(+testId);
   }
 
   @Post('standalone/:examId/finalize')
