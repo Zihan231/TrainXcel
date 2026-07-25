@@ -11,14 +11,21 @@ import { join } from 'path';
 // Tell all Google Cloud SDKs where to find your credentials
 process.env.GOOGLE_APPLICATION_CREDENTIALS = join(process.cwd(), 'google-credentials.json');
 
+import { NestExpressApplication } from '@nestjs/platform-express';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
-  // Ensure uploads directory exists
+  // Ensure uploads directories exist
   const uploadDir = join(process.cwd(), 'uploads');
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+  const thumbnailsDir = join(uploadDir, 'thumbnails');
+  const usersDpDir = join(uploadDir, 'users_dp');
+  
+  [uploadDir, thumbnailsDir, usersDpDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
   
   app.use(cookieParser());
   const allowedOrigins = [
@@ -29,16 +36,14 @@ async function bootstrap() {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
     'http://127.0.0.1:3002',
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
 
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
   });
 
-  // Serve static files
-  app.use('/uploads', express.static(uploadDir));
-  
+
   // Enable global validation pipe for DTO validation
   app.useGlobalPipes(
     new ValidationPipe({

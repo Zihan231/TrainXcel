@@ -7,6 +7,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 
+import { UploadsController } from './uploads.controller';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -30,7 +32,7 @@ import { CoursesModule } from './courses/courses.module';
     AuthModule,
     CoursesModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, UploadsController],
   providers: [AppService],
 })
 export class AppModule {}

@@ -17,4 +17,8 @@ export class UpdateCourseDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
 }

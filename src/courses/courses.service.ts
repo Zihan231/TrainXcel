@@ -103,6 +103,10 @@ export class CoursesService {
     });
     if (!course) return;
 
+    if (course.thumbnailUrl) {
+      this.deletePhysicalFile(course.thumbnailUrl);
+    }
+
     for (const lesson of course.lessons || []) {
       if (lesson.materialLink) this.deletePhysicalFile(lesson.materialLink);
       for (const test of lesson.tests || []) {
@@ -263,6 +267,8 @@ export class CoursesService {
           status: true,
           createdAt: true,
           updatedAt: true,
+          thumbnailUrl: true,
+          description: true,
           category: {
             id: true,
             name: true,

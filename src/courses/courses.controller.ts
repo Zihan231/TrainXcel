@@ -56,6 +56,39 @@ export class CoursesController {
     };
   }
 
+  @Post('upload-thumbnail')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/thumbnails',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Unsupported file type. Only JPG, PNG, GIF, and WEBP images are allowed.'), false);
+        }
+      },
+    }),
+  )
+  async uploadThumbnail(@UploadedFile() file: any, @Req() req: any) {
+    const { role } = req.user;
+    if (role === 'user') {
+      throw new ForbiddenException('Only admin and employee users can upload thumbnails.');
+    }
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    return {
+      url: `/uploads/thumbnails/${file.filename}`,
+    };
+  }
+
   // --- Statistics & Analytics ---
   @Get('stats/dashboard')
   @UseGuards(JwtAuthGuard)

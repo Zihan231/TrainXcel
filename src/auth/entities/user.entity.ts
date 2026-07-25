@@ -20,6 +20,9 @@ export class User {
   @Column({ unique: true })
   userId: string; // e.g. 'TX-0001'
 
+  @Column({ nullable: true })
+  profilePictureUrl: string;
+
   @Index()
   @Column({ default: 'user' })
   role: string; // 'user' | 'employee' | 'admin'

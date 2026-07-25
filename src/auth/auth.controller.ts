@@ -1,4 +1,7 @@
-import { Controller, Post, Body, Get, HttpCode, HttpStatus, Param, Patch, Query, Res, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, HttpCode, HttpStatus, Param, Patch, Query, Res, UseGuards, Req, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -100,5 +103,34 @@ export class AuthController {
   ) {
     // The admin's userId is securely extracted from their JWT token
     return this.authService.updateUserRole(userId, role, req.user.userId);
+  }
+
+  @Post('upload-dp')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/users_dp',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Unsupported file type. Only JPG, PNG, GIF, and WEBP images are allowed.'), false);
+        }
+      },
+    }),
+  )
+  async uploadProfilePicture(@UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    return {
+      url: `/uploads/users_dp/${file.filename}`,
+    };
   }
 }

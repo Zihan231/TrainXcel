@@ -26,6 +26,9 @@ export class Course {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  @Column({ nullable: true })
+  thumbnailUrl: string;
+
   @ManyToOne(() => Category, (category) => category.courses, { onDelete: 'SET NULL', nullable: true })
   category: Category | null;
 

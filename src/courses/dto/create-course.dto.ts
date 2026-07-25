@@ -17,4 +17,8 @@ export class CreateCourseDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
 }
