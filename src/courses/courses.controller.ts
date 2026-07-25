@@ -264,6 +264,22 @@ export class CoursesController {
     return this.coursesService.getMyLearningPaginated(userId, Number(page), Number(limit), status);
   }
 
+  @Get('user-learning/:userId')
+  @UseGuards(JwtAuthGuard)
+  async getUserLearning(
+    @Req() req: any,
+    @Param('userId') targetUserId: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 100,
+    @Query('status') status: string = 'all',
+  ) {
+    const { role } = req.user;
+    if (role !== 'admin' && role !== 'employee') {
+      throw new ForbiddenException('Only admin and employee users can view other users learning progress.');
+    }
+    return this.coursesService.getMyLearningPaginated(targetUserId, Number(page), Number(limit), status);
+  }
+
   @Get(':courseId')
   @UseGuards(JwtAuthGuard)
   async getCourse(@Req() req: any, @Param('courseId') courseId: string) {
