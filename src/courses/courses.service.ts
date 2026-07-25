@@ -980,6 +980,8 @@ export class CoursesService {
         status: true,
         createdAt: true,
         updatedAt: true,
+        description: true,
+        thumbnailUrl: true,
         category: {
           id: true,
           name: true,
@@ -1032,6 +1034,8 @@ export class CoursesService {
         status: true,
         createdAt: true,
         updatedAt: true,
+        description: true,
+        thumbnailUrl: true,
         category: {
           id: true,
           name: true,
