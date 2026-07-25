@@ -8,6 +8,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
+import * as fs from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class AuthService {
@@ -119,6 +121,26 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
+    // If a new profile picture is being set, delete the old one from disk
+    if (updateUserDto.profilePictureUrl && user.profilePictureUrl && updateUserDto.profilePictureUrl !== user.profilePictureUrl) {
+      const oldPath = join(process.cwd(), user.profilePictureUrl);
+      console.log(`[DP DELETE] Old URL: "${user.profilePictureUrl}" | Built path: "${oldPath}" | Exists: ${fs.existsSync(oldPath)}`);
+      try {
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+          this.logger.log(`Deleted old profile picture: ${oldPath}`);
+          console.log(`[DP DELETE] SUCCESS: Deleted ${oldPath}`);
+        } else {
+          console.log(`[DP DELETE] File not found at: ${oldPath}`);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to delete old profile picture: ${oldPath}`, err);
+        console.error(`[DP DELETE] ERROR:`, err);
+      }
+    } else {
+      console.log(`[DP DELETE] Skipped. newUrl="${updateUserDto.profilePictureUrl}" oldUrl="${user.profilePictureUrl}"`);
+    }
+
     Object.assign(user, updateUserDto);
     const saved = await this.userRepository.save(user);
     const { password, ...result } = saved;
