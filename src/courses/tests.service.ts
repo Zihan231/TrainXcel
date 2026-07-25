@@ -159,18 +159,26 @@ export class TestsService {
   async getMySubmission(testId: number, userId: string) {
     const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new NotFoundException('User not found');
-    return this.submissionRepo.findOne({
+    const submission = await this.submissionRepo.findOne({
       where: { test: { id: testId }, user: { id: user.id }, isDraft: false },
       relations: { answers: { question: true } },
       order: { createdAt: 'DESC' }
     });
+    if (submission) {
+      submission.answers = submission.answers.filter(a => a.evaluatedBy !== null && a.evaluatedBy !== undefined);
+    }
+    return submission;
   }
 
   async getSubmissionById(submissionId: number) {
-    return this.submissionRepo.findOne({
+    const submission = await this.submissionRepo.findOne({
       where: { id: submissionId },
       relations: { user: true, test: true, answers: { question: true } }
     });
+    if (submission) {
+      submission.answers = submission.answers.filter(a => a.evaluatedBy !== null && a.evaluatedBy !== undefined);
+    }
+    return submission;
   }
   
   async getStandaloneExamsForCourse(courseIdOrCode: number | string, role: string = 'user') {
@@ -723,15 +731,25 @@ export class TestsService {
 
   async getLessonSubmissions(lessonId: number) {
     const tests = await this.testRepo.find({ where: { lesson: { id: lessonId } } });
-    if (!tests.length) return [];
+    if (!tests.length) return { submissions: [], remaining: 0 };
 
     const testIds = tests.map((t) => t.id);
 
-    return this.submissionRepo.find({
-      where: { test: { id: In(testIds) }, isDraft: false },
+    const submissions = await this.submissionRepo.find({
+      where: { test: { id: In(testIds) }, isDraft: false, status: 'Evaluated' },
       relations: { user: true, test: true },
       order: { submittedAt: 'DESC' },
     });
+
+    const lesson = await this.lessonRepo.findOne({ where: { id: lessonId }, relations: { course: true } });
+    let remaining = 0;
+    if (lesson?.course?.id) {
+      const totalEnrolled = await this.enrollmentRepo.count({ where: { course: { id: lesson.course.id } } });
+      const uniqueSubmittedUserIds = new Set(submissions.map(s => s.user?.id).filter((id): id is number => id !== undefined && id !== null));
+      remaining = totalEnrolled - uniqueSubmittedUserIds.size;
+    }
+
+    return { submissions, remaining };
   }
 
   async updateTest(testId: number, dto: UpdateTestDto, role: string) {
