@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In, MoreThanOrEqual } from 'typeorm';
 import * as fs from 'fs';
@@ -28,13 +33,17 @@ export class TestsService {
   constructor(
     @InjectRepository(Test) private testRepo: Repository<Test>,
     @InjectRepository(Question) private questionRepo: Repository<Question>,
-    @InjectRepository(TestSubmission) private submissionRepo: Repository<TestSubmission>,
-    @InjectRepository(SubmissionAnswer) private answerRepo: Repository<SubmissionAnswer>,
+    @InjectRepository(TestSubmission)
+    private submissionRepo: Repository<TestSubmission>,
+    @InjectRepository(SubmissionAnswer)
+    private answerRepo: Repository<SubmissionAnswer>,
     @InjectRepository(Course) private courseRepo: Repository<Course>,
     @InjectRepository(Lesson) private lessonRepo: Repository<Lesson>,
-    @InjectRepository(Enrollment) private enrollmentRepo: Repository<Enrollment>,
+    @InjectRepository(Enrollment)
+    private enrollmentRepo: Repository<Enrollment>,
     @InjectRepository(User) private userRepository: Repository<User>,
-    @InjectRepository(Notification) private notificationRepo: Repository<Notification>,
+    @InjectRepository(Notification)
+    private notificationRepo: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
     private mediaProcessorService: MediaProcessorService,
     // private speechService: SpeechService,
@@ -69,13 +78,18 @@ export class TestsService {
     }
 
     if (createDto.courseId) {
-      const course = await this.courseRepo.findOne({ where: { id: createDto.courseId } });
+      const course = await this.courseRepo.findOne({
+        where: { id: createDto.courseId },
+      });
       if (!course) throw new NotFoundException('Course not found');
       test.course = course;
     }
 
     if (createDto.lessonId) {
-      const lesson = await this.lessonRepo.findOne({ where: { id: createDto.lessonId }, relations: { course: true } });
+      const lesson = await this.lessonRepo.findOne({
+        where: { id: createDto.lessonId },
+        relations: { course: true },
+      });
       if (!lesson) throw new NotFoundException('Lesson not found');
       test.lesson = lesson;
       if (!test.course && lesson.course) {
@@ -83,14 +97,15 @@ export class TestsService {
       }
     }
 
-    test.questions = createDto.questions.map(q => {
+    test.questions = createDto.questions.map((q) => {
       const question = new Question();
       question.questionText = q.questionText;
       question.type = q.type;
       question.marks = q.marks;
       if (q.postureMarks !== undefined) question.postureMarks = q.postureMarks;
       if (q.voiceMarks !== undefined) question.voiceMarks = q.voiceMarks;
-      if (q.accuracyMarks !== undefined) question.accuracyMarks = q.accuracyMarks;
+      if (q.accuracyMarks !== undefined)
+        question.accuracyMarks = q.accuracyMarks;
       question.evaluationType = q.evaluationType || 'AI';
       if (q.type === 'MCQ') {
         question.options = q.options || [];
@@ -105,7 +120,7 @@ export class TestsService {
     if (test.course) {
       const course = await this.courseRepo.findOne({
         where: { id: test.course.id },
-        relations: { enrollments: { user: true } }
+        relations: { enrollments: { user: true } },
       });
       if (course && course.enrollments) {
         for (const enrollment of course.enrollments) {
@@ -115,13 +130,16 @@ export class TestsService {
           notification.actionLink = `/courses/${course.courseId}`;
           const savedNotif = await this.notificationRepo.save(notification);
 
-          this.notificationsGateway.sendNotificationToUser(enrollment.user.userId, {
-            id: savedNotif.id,
-            message: savedNotif.message,
-            actionLink: savedNotif.actionLink,
-            createdAt: savedNotif.createdAt,
-            isRead: false,
-          });
+          this.notificationsGateway.sendNotificationToUser(
+            enrollment.user.userId,
+            {
+              id: savedNotif.id,
+              message: savedNotif.message,
+              actionLink: savedNotif.actionLink,
+              createdAt: savedNotif.createdAt,
+              isRead: false,
+            },
+          );
         }
       }
     }
@@ -139,7 +157,9 @@ export class TestsService {
 
   async getTestsForCourse(courseIdOrCode: number | string) {
     const courseIdStr = String(courseIdOrCode).trim();
-    const isNumeric = /^[0-9]+$/.test(courseIdStr) && String(Number(courseIdStr)) === courseIdStr;
+    const isNumeric =
+      /^[0-9]+$/.test(courseIdStr) &&
+      String(Number(courseIdStr)) === courseIdStr;
 
     const course = isNumeric
       ? await this.courseRepo.findOne({ where: { id: Number(courseIdStr) } })
@@ -162,10 +182,12 @@ export class TestsService {
     const submission = await this.submissionRepo.findOne({
       where: { test: { id: testId }, user: { id: user.id }, isDraft: false },
       relations: { answers: { question: true } },
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
     if (submission) {
-      submission.answers = submission.answers.filter(a => a.evaluatedBy !== null && a.evaluatedBy !== undefined);
+      submission.answers = submission.answers.filter(
+        (a) => a.evaluatedBy !== null && a.evaluatedBy !== undefined,
+      );
     }
     return submission;
   }
@@ -173,17 +195,24 @@ export class TestsService {
   async getSubmissionById(submissionId: number) {
     const submission = await this.submissionRepo.findOne({
       where: { id: submissionId },
-      relations: { user: true, test: true, answers: { question: true } }
+      relations: { user: true, test: true, answers: { question: true } },
     });
     if (submission) {
-      submission.answers = submission.answers.filter(a => a.evaluatedBy !== null && a.evaluatedBy !== undefined);
+      submission.answers = submission.answers.filter(
+        (a) => a.evaluatedBy !== null && a.evaluatedBy !== undefined,
+      );
     }
     return submission;
   }
-  
-  async getStandaloneExamsForCourse(courseIdOrCode: number | string, role: string = 'user') {
+
+  async getStandaloneExamsForCourse(
+    courseIdOrCode: number | string,
+    role: string = 'user',
+  ) {
     const courseIdStr = String(courseIdOrCode).trim();
-    const isNumeric = /^[0-9]+$/.test(courseIdStr) && String(Number(courseIdStr)) === courseIdStr;
+    const isNumeric =
+      /^[0-9]+$/.test(courseIdStr) &&
+      String(Number(courseIdStr)) === courseIdStr;
 
     const course = isNumeric
       ? await this.courseRepo.findOne({ where: { id: Number(courseIdStr) } })
@@ -201,7 +230,12 @@ export class TestsService {
     if (role !== 'admin' && role !== 'employee') {
       // Users should be able to see standalone timed exams as soon as they're added,
       // even if the startTime is in the future (status = 'scheduled').
-      whereClause.status = In(['published', 'scheduled', 'active', 'completed']);
+      whereClause.status = In([
+        'published',
+        'scheduled',
+        'active',
+        'completed',
+      ]);
     }
 
     return this.testRepo.find({
@@ -212,7 +246,10 @@ export class TestsService {
   }
 
   async submitTest(submitDto: SubmitTestDto, userId: string) {
-    const test = await this.testRepo.findOne({ where: { id: submitDto.testId }, relations: { questions: true, course: true, lesson: true } });
+    const test = await this.testRepo.findOne({
+      where: { id: submitDto.testId },
+      relations: { questions: true, course: true, lesson: true },
+    });
     if (!test) throw new NotFoundException('Test not found');
 
     const user = await this.userRepository.findOne({ where: { userId } });
@@ -221,30 +258,51 @@ export class TestsService {
 
     if (test.testType === 'Standalone') {
       const now = new Date();
-      if (test.startTime && now < test.startTime) throw new BadRequestException('Exam has not started yet');
+      if (test.startTime && now < test.startTime)
+        throw new BadRequestException('Exam has not started yet');
       const gracePeriodMs = 60 * 1000; // 1 minute grace period
-      if (test.endTime && now.getTime() > test.endTime.getTime() + gracePeriodMs) throw new BadRequestException('Exam has ended');
-      
+      if (
+        test.endTime &&
+        now.getTime() > test.endTime.getTime() + gracePeriodMs
+      )
+        throw new BadRequestException('Exam has ended');
+
       // Ensure enrolled
       if (test.course) {
-        const enrollment = await this.enrollmentRepo.findOne({ where: { course: { id: test.course.id }, user: { id: userInternalId } } });
-        if (!enrollment) throw new ForbiddenException('You must be enrolled in this course to take this exam');
+        const enrollment = await this.enrollmentRepo.findOne({
+          where: {
+            course: { id: test.course.id },
+            user: { id: userInternalId },
+          },
+        });
+        if (!enrollment)
+          throw new ForbiddenException(
+            'You must be enrolled in this course to take this exam',
+          );
       }
     }
 
     // Check previous submissions
     const previousSubmission = await this.submissionRepo.findOne({
-      where: { test: { id: test.id }, user: { id: userInternalId }, isDraft: false },
-      order: { createdAt: 'ASC' }
+      where: {
+        test: { id: test.id },
+        user: { id: userInternalId },
+        isDraft: false,
+      },
+      order: { createdAt: 'ASC' },
     });
 
     // If it's not a draft and user is submitting a new one for retake
     let submission = new TestSubmission();
-    
+
     // Find if there is an existing draft
     const existingDraft = await this.submissionRepo.findOne({
-      where: { test: { id: test.id }, user: { id: userInternalId }, isDraft: true },
-      relations: { answers: true }
+      where: {
+        test: { id: test.id },
+        user: { id: userInternalId },
+        isDraft: true,
+      },
+      relations: { answers: true },
     });
 
     if (existingDraft) {
@@ -262,9 +320,18 @@ export class TestsService {
     if (!submission.isDraft) {
       for (const question of test.questions) {
         if (question.type === 'Video') {
-          const provided = submitDto.answers.find(ans => ans.questionId === question.id);
-          if (!provided || !provided.providedAnswer || String(provided.providedAnswer).trim() === '' || provided.providedAnswer === 'Uploading...') {
-            throw new BadRequestException(`A video response is required for question: "${question.questionText}"`);
+          const provided = submitDto.answers.find(
+            (ans) => ans.questionId === question.id,
+          );
+          if (
+            !provided ||
+            !provided.providedAnswer ||
+            String(provided.providedAnswer).trim() === '' ||
+            provided.providedAnswer === 'Uploading...'
+          ) {
+            throw new BadRequestException(
+              `A video response is required for question: "${question.questionText}"`,
+            );
           }
         }
       }
@@ -277,11 +344,11 @@ export class TestsService {
     if (existingDraft && existingDraft.answers) {
       await this.answerRepo.remove(existingDraft.answers);
     }
-    
+
     submission.answers = [];
 
     for (const ans of submitDto.answers) {
-      const question = test.questions.find(q => q.id === ans.questionId);
+      const question = test.questions.find((q) => q.id === ans.questionId);
       if (!question) continue;
 
       const subAnswer = new SubmissionAnswer();
@@ -292,11 +359,15 @@ export class TestsService {
         if (question.type === 'MCQ') {
           // Auto evaluation
           subAnswer.evaluatedBy = 'System';
-          const provided = Array.isArray(ans.providedAnswer) ? ans.providedAnswer : [ans.providedAnswer];
+          const provided = Array.isArray(ans.providedAnswer)
+            ? ans.providedAnswer
+            : [ans.providedAnswer];
           const correct = question.correctAnswers || [];
-          
+
           // Check if exactly same elements
-          const isCorrect = provided.length === correct.length && provided.every(val => correct.includes(val));
+          const isCorrect =
+            provided.length === correct.length &&
+            provided.every((val) => correct.includes(val));
           if (isCorrect) {
             subAnswer.marksAwarded = question.marks;
             totalMarks += question.marks;
@@ -313,7 +384,10 @@ export class TestsService {
     }
 
     submission.marksObtained = totalMarks;
-    submission.status = needsManualEvaluation && !submission.isDraft ? 'Pending Evaluation' : 'Evaluated';
+    submission.status =
+      needsManualEvaluation && !submission.isDraft
+        ? 'Pending Evaluation'
+        : 'Evaluated';
 
     // If user has already submitted before, do NOT save this second attempt to DB (practice mode)
     if (previousSubmission) {
@@ -324,18 +398,26 @@ export class TestsService {
     const saved = await this.submissionRepo.save(submission);
 
     // Auto-complete lesson if it's a lesson-level test and not a draft
-    if (test.testType === 'Lesson' && !submission.isDraft && test.lesson && test.course) {
+    if (
+      test.testType === 'Lesson' &&
+      !submission.isDraft &&
+      test.lesson &&
+      test.course
+    ) {
       const enrollment = await this.enrollmentRepo.findOne({
         where: { user: { id: userInternalId }, course: { id: test.course.id } },
-        relations: { completedLessons: true, course: { lessons: true } }
+        relations: { completedLessons: true, course: { lessons: true } },
       });
       if (enrollment) {
-        const alreadyCompleted = enrollment.completedLessons.some(cl => cl.id === test.lesson.id);
+        const alreadyCompleted = enrollment.completedLessons.some(
+          (cl) => cl.id === test.lesson.id,
+        );
         if (!alreadyCompleted) {
           enrollment.completedLessons.push(test.lesson);
           const totalLessons = enrollment.course.lessons.length;
           const completedCount = enrollment.completedLessons.length;
-          enrollment.progress = Math.round((completedCount / totalLessons) * 100 * 100) / 100;
+          enrollment.progress =
+            Math.round((completedCount / totalLessons) * 100 * 100) / 100;
           await this.enrollmentRepo.save(enrollment);
         }
       }
@@ -343,215 +425,294 @@ export class TestsService {
 
     // --- ASYNCHRONOUS AI EVALUATION WORKFLOW ---
     if (!submission.isDraft && needsManualEvaluation) {
-      const videoAnswer = submitDto.answers.find(ans => {
-        const q = test.questions.find(quest => quest.id === ans.questionId);
+      const videoAnswer = submitDto.answers.find((ans) => {
+        const q = test.questions.find((quest) => quest.id === ans.questionId);
         return q && q.type === 'Video';
       });
 
       if (videoAnswer && videoAnswer.providedAnswer) {
         let filename = videoAnswer.providedAnswer;
         if (filename.includes('/')) {
-          filename = filename.split('/').pop(); 
+          filename = filename.split('/').pop();
         }
 
         // Grab the actual question object to get marks and the script URI
-        const videoQuestion = test.questions.find(quest => quest.id === videoAnswer.questionId);
+        const videoQuestion = test.questions.find(
+          (quest) => quest.id === videoAnswer.questionId,
+        );
         if (!videoQuestion) return;
 
         if (videoQuestion.evaluationType === 'Manual') {
-          console.log(`[TestsService] Video question id=${videoQuestion.id} is configured for Manual evaluation. Skipping AI Gemini flow.`);
+          console.log(
+            `[TestsService] Video question id=${videoQuestion.id} is configured for Manual evaluation. Skipping AI Gemini flow.`,
+          );
           return;
         }
 
-        this.mediaProcessorService.processVideoAssets(
-          filename, 
-          saved.id
-        ).then(async (assets) => { 
-          
-          console.log(`[Media Processor] Assets successfully extracted for submission-${saved.id}`);
-          
-          try {
-            /* 
+        this.mediaProcessorService
+          .processVideoAssets(filename, saved.id)
+          .then(async (assets) => {
+            console.log(
+              `[Media Processor] Assets successfully extracted for submission-${saved.id}`,
+            );
+
+            try {
+              /* 
             // --- KEPT FOR REFERENCE: LEGACY SPEECH-TO-TEXT ---
             // 1. Transcribe the Audio
             const transcript = await this.speechService.transcribeAudio(assets.audioPath);
             console.log(`[Speech API] Final Transcript:\n`, transcript);
             */
 
-            // 1. Upload extracted assets to Google Cloud Storage (Parallel)
-            console.log(`[Cloud Storage] Uploading assets to GCS for submission-${saved.id}...`);
-            const audioDestination = `evaluations/submission_${saved.id}/audio/extracted_audio.mp3`;
-            
-            const [audioGcsUri, snapshotGcsUris] = await Promise.all([
-              this.cloudStorageService.uploadFile(assets.audioPath, audioDestination),
-              this.cloudStorageService.uploadSnapshots(assets.snapshotDir, saved.id)
-            ]);
-            
-            console.log(`[Cloud Storage] Upload complete! Audio: ${audioGcsUri}, Snapshots: ${snapshotGcsUris.length}`);
+              // 1. Upload extracted assets to Google Cloud Storage (Parallel)
+              console.log(
+                `[Cloud Storage] Uploading assets to GCS for submission-${saved.id}...`,
+              );
+              const audioDestination = `evaluations/submission_${saved.id}/audio/extracted_audio.mp3`;
 
-            // 2. Setup Script details
-            let scriptGcsUri = ''; 
-            let scriptMimeType = ''; 
-            let scriptText: string | undefined;
+              const [audioGcsUri, snapshotGcsUris] = await Promise.all([
+                this.cloudStorageService.uploadFile(
+                  assets.audioPath,
+                  audioDestination,
+                ),
+                this.cloudStorageService.uploadSnapshots(
+                  assets.snapshotDir,
+                  saved.id,
+                ),
+              ]);
 
-            if (test.referenceScript) {
-              const cleanLink = test.referenceScript.replace(/^[/\\]+/, '');
-              const localPath = path.resolve('.', cleanLink);
-              if (fs.existsSync(localPath)) {
-                const ext = path.extname(localPath).toLowerCase();
-                let shouldUpload = true;
-                
-                if (ext === '.pdf') {
-                  scriptMimeType = 'application/pdf';
-                } else if (ext === '.docx') {
-                  scriptMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                  try {
-                    const ast = await OfficeParser.parseOffice(localPath);
-                    scriptText = ast.toText();
-                    shouldUpload = false;
-                  } catch (e) {
-                    console.error('[officeParser] Failed to parse docx:', e);
+              console.log(
+                `[Cloud Storage] Upload complete! Audio: ${audioGcsUri}, Snapshots: ${snapshotGcsUris.length}`,
+              );
+
+              // 2. Setup Script details
+              let scriptGcsUri = '';
+              let scriptMimeType = '';
+              let scriptText: string | undefined;
+
+              if (test.referenceScript) {
+                const cleanLink = test.referenceScript.replace(/^[/\\]+/, '');
+                const localPath = path.resolve('.', cleanLink);
+                if (fs.existsSync(localPath)) {
+                  const ext = path.extname(localPath).toLowerCase();
+                  let shouldUpload = true;
+
+                  if (ext === '.pdf') {
+                    scriptMimeType = 'application/pdf';
+                  } else if (ext === '.docx') {
+                    scriptMimeType =
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                    try {
+                      const ast = await OfficeParser.parseOffice(localPath);
+                      scriptText = ast.toText();
+                      shouldUpload = false;
+                    } catch (e) {
+                      console.error('[officeParser] Failed to parse docx:', e);
+                    }
+                  } else if (ext === '.pptx' || ext === '.ppt') {
+                    scriptMimeType =
+                      'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                    try {
+                      const ast = await OfficeParser.parseOffice(localPath);
+                      scriptText = ast.toText();
+                      shouldUpload = false;
+                    } catch (e) {
+                      console.error('[officeParser] Failed to parse pptx:', e);
+                    }
                   }
-                } else if (ext === '.pptx' || ext === '.ppt') {
-                  scriptMimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-                  try {
-                    const ast = await OfficeParser.parseOffice(localPath);
-                    scriptText = ast.toText();
-                    shouldUpload = false;
-                  } catch (e) {
-                    console.error('[officeParser] Failed to parse pptx:', e);
-                  }
-                }
-                
-                if (shouldUpload) {
-                  const scriptDestination = `evaluations/${test.id}/script/${path.basename(localPath)}`;
-                  try {
-                    console.log(`[Cloud Storage] Uploading reference script: ${localPath}`);
-                    scriptGcsUri = await this.cloudStorageService.uploadFile(localPath, scriptDestination);
-                  } catch (scriptUploadError) {
-                    console.error(`[Cloud Storage] Failed to upload reference script, using fallback.`, scriptUploadError);
+
+                  if (shouldUpload) {
+                    const scriptDestination = `evaluations/${test.id}/script/${path.basename(localPath)}`;
+                    try {
+                      console.log(
+                        `[Cloud Storage] Uploading reference script: ${localPath}`,
+                      );
+                      scriptGcsUri = await this.cloudStorageService.uploadFile(
+                        localPath,
+                        scriptDestination,
+                      );
+                    } catch (scriptUploadError) {
+                      console.error(
+                        `[Cloud Storage] Failed to upload reference script, using fallback.`,
+                        scriptUploadError,
+                      );
+                    }
+                  } else {
+                    console.log(
+                      `[Cloud Storage] Extracted text from script locally, skipping GCS upload.`,
+                    );
                   }
                 } else {
-                  console.log(`[Cloud Storage] Extracted text from script locally, skipping GCS upload.`);
+                  console.log(
+                    `[Cloud Storage] Reference script path not found on disk, treating as plain text instruction.`,
+                  );
+                  scriptText = test.referenceScript;
                 }
               } else {
-                console.log(`[Cloud Storage] Reference script path not found on disk, treating as plain text instruction.`);
-                scriptText = test.referenceScript;
+                console.log(
+                  `[Cloud Storage] No reference script provided, setting fallback prompt text.`,
+                );
+                scriptText =
+                  "No reference script was provided for this test. Evaluate the candidate's general communication structure and flow.";
               }
-            } else {
-              console.log(`[Cloud Storage] No reference script provided, setting fallback prompt text.`);
-              scriptText = "No reference script was provided for this test. Evaluate the candidate's general communication structure and flow.";
-            }
 
-            // 3. Trigger Gemini for Video Evaluation
-            console.log(`[Gemini AI] Starting evaluation...`);
-            const pMarks = videoQuestion.postureMarks ?? (videoQuestion.marks / 3);
-            const vMarks = videoQuestion.voiceMarks ?? (videoQuestion.marks / 3);
-            const aMarks = videoQuestion.accuracyMarks ?? (videoQuestion.marks / 3);
+              // 3. Trigger Gemini for Video Evaluation
+              console.log(`[Gemini AI] Starting evaluation...`);
+              const pMarks =
+                videoQuestion.postureMarks ?? videoQuestion.marks / 3;
+              const vMarks =
+                videoQuestion.voiceMarks ?? videoQuestion.marks / 3;
+              const aMarks =
+                videoQuestion.accuracyMarks ?? videoQuestion.marks / 3;
 
-            const evaluationResult = await this.geminiAnalysisService.evaluateCandidate(
-               audioGcsUri, 
-               snapshotGcsUris, 
-               scriptGcsUri,
-               scriptMimeType,
-               pMarks,
-               vMarks,
-               aMarks,
-               scriptText
-            );
-            
-            console.log(`[Gemini AI] Evaluation complete:`, evaluationResult);
-            
-            // 4. Update the database with the AI score
-            const savedSubAnswer = await this.answerRepo.findOne({
-              where: {
-                submission: { id: saved.id },
-                question: { id: videoQuestion.id }
-              }
-            });
+              const evaluationResult =
+                await this.geminiAnalysisService.evaluateCandidate(
+                  audioGcsUri,
+                  snapshotGcsUris,
+                  scriptGcsUri,
+                  scriptMimeType,
+                  pMarks,
+                  vMarks,
+                  aMarks,
+                  scriptText,
+                );
+
+              console.log(`[Gemini AI] Evaluation complete:`, evaluationResult);
+
+              // 4. Update the database with the AI score
+              const savedSubAnswer = await this.answerRepo.findOne({
+                where: {
+                  submission: { id: saved.id },
+                  question: { id: videoQuestion.id },
+                },
+              });
 
               if (savedSubAnswer) {
-              const commentString = JSON.stringify(evaluationResult);
-              console.log(`[Database] Updating Answer ID ${savedSubAnswer.id} with marks: ${evaluationResult.overallScore}, comment length: ${commentString.length}`);
-              await this.answerRepo.update(savedSubAnswer.id, {
-                marksAwarded: evaluationResult.overallScore,
-                evaluatorComment: commentString,
-                evaluatedBy: 'AI'
-              });
-            } else {
-              console.error(`[Database] Could not find SubmissionAnswer for submission: ${saved.id}, question: ${videoQuestion.id}`);
-            }
-
-            // Update the overall submission total marks and status using update to prevent TypeORM cascade overwriting
-            const newMarksObtained = saved.marksObtained + evaluationResult.overallScore;
-            await this.submissionRepo.update(saved.id, {
-              marksObtained: newMarksObtained,
-              status: 'Evaluated'
-            });
-
-            console.log(`[Database] Submission ${saved.id} successfully updated with AI score: ${evaluationResult.overallScore}`);
-
-            // Send notification to the student
-            try {
-              const fullSubmission = await this.submissionRepo.findOne({
-                where: { id: saved.id },
-                relations: { user: true, test: true }
-              });
-              if (fullSubmission && fullSubmission.user) {
-                const notification = new Notification();
-                notification.message = `Your test "${fullSubmission.test.title}" has been evaluated by AI.`;
-                notification.user = fullSubmission.user;
-                notification.actionLink = `/dashboard?tab=my-learning`;
-                const savedNotif = await this.notificationRepo.save(notification);
-
-                this.notificationsGateway.sendNotificationToUser(fullSubmission.user.userId, {
-                  id: savedNotif.id,
-                  message: savedNotif.message,
-                  actionLink: savedNotif.actionLink,
-                  createdAt: savedNotif.createdAt,
-                  isRead: false
+                const commentString = JSON.stringify(evaluationResult);
+                console.log(
+                  `[Database] Updating Answer ID ${savedSubAnswer.id} with marks: ${evaluationResult.overallScore}, comment length: ${commentString.length}`,
+                );
+                await this.answerRepo.update(savedSubAnswer.id, {
+                  marksAwarded: evaluationResult.overallScore,
+                  evaluatorComment: commentString,
+                  evaluatedBy: 'AI',
                 });
+              } else {
+                console.error(
+                  `[Database] Could not find SubmissionAnswer for submission: ${saved.id}, question: ${videoQuestion.id}`,
+                );
               }
-            } catch (notifErr) {
-              console.error(`[Notification] Failed to notify user for AI evaluation:`, notifErr);
-            }
-            
-            // Delete the temporary local files inside VdoEva
-            try {
-              const outputDir = path.dirname(assets.snapshotDir);
-              if (fs.existsSync(outputDir)) {
-                fs.rmSync(outputDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 5000 });
-                console.log(`[Media Processor] Cleaned up temporary extraction folder: ${outputDir}`);
-              }
-            } catch (err) {
-              console.error(`[Media Processor] Failed to clean up temporary extraction folder:`, err);
-            }
 
-          } catch (workflowError) {
-            console.error(`[Evaluation Workflow] Failed during AI or Cloud processing:`, workflowError);
-            
-            // Cleanup on error too!
-            try {
-              const outputDir = path.dirname(assets.snapshotDir);
-              if (fs.existsSync(outputDir)) {
-                fs.rmSync(outputDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 5000 });
-                console.log(`[Media Processor] Cleaned up temporary extraction folder after error: ${outputDir}`);
-              }
-            } catch (err) {
-              console.error(`[Media Processor] Failed to clean up temporary extraction folder:`, err);
-            }
-          }
+              // Update the overall submission total marks and status using update to prevent TypeORM cascade overwriting
+              const newMarksObtained =
+                saved.marksObtained + evaluationResult.overallScore;
+              await this.submissionRepo.update(saved.id, {
+                marksObtained: newMarksObtained,
+                status: 'Evaluated',
+              });
 
-        }).catch((err) => {
-          console.error(`[Media Processor] Failed to extract media for test-${test.id}:`, err);
-        });
+              console.log(
+                `[Database] Submission ${saved.id} successfully updated with AI score: ${evaluationResult.overallScore}`,
+              );
+
+              // Send notification to the student
+              try {
+                const fullSubmission = await this.submissionRepo.findOne({
+                  where: { id: saved.id },
+                  relations: { user: true, test: true },
+                });
+                if (fullSubmission && fullSubmission.user) {
+                  const notification = new Notification();
+                  notification.message = `Your test "${fullSubmission.test.title}" has been evaluated by AI.`;
+                  notification.user = fullSubmission.user;
+                  notification.actionLink = `/dashboard?tab=my-learning`;
+                  const savedNotif =
+                    await this.notificationRepo.save(notification);
+
+                  this.notificationsGateway.sendNotificationToUser(
+                    fullSubmission.user.userId,
+                    {
+                      id: savedNotif.id,
+                      message: savedNotif.message,
+                      actionLink: savedNotif.actionLink,
+                      createdAt: savedNotif.createdAt,
+                      isRead: false,
+                    },
+                  );
+                }
+              } catch (notifErr) {
+                console.error(
+                  `[Notification] Failed to notify user for AI evaluation:`,
+                  notifErr,
+                );
+              }
+
+              // Delete the temporary local files inside VdoEva
+              try {
+                const outputDir = path.dirname(assets.snapshotDir);
+                if (fs.existsSync(outputDir)) {
+                  fs.rmSync(outputDir, {
+                    recursive: true,
+                    force: true,
+                    maxRetries: 10,
+                    retryDelay: 5000,
+                  });
+                  console.log(
+                    `[Media Processor] Cleaned up temporary extraction folder: ${outputDir}`,
+                  );
+                }
+              } catch (err) {
+                console.error(
+                  `[Media Processor] Failed to clean up temporary extraction folder:`,
+                  err,
+                );
+              }
+            } catch (workflowError) {
+              console.error(
+                `[Evaluation Workflow] Failed during AI or Cloud processing:`,
+                workflowError,
+              );
+
+              // Cleanup on error too!
+              try {
+                const outputDir = path.dirname(assets.snapshotDir);
+                if (fs.existsSync(outputDir)) {
+                  fs.rmSync(outputDir, {
+                    recursive: true,
+                    force: true,
+                    maxRetries: 10,
+                    retryDelay: 5000,
+                  });
+                  console.log(
+                    `[Media Processor] Cleaned up temporary extraction folder after error: ${outputDir}`,
+                  );
+                }
+              } catch (err) {
+                console.error(
+                  `[Media Processor] Failed to clean up temporary extraction folder:`,
+                  err,
+                );
+              }
+            }
+          })
+          .catch((err) => {
+            console.error(
+              `[Media Processor] Failed to extract media for test-${test.id}:`,
+              err,
+            );
+          });
       }
     }
- 
+
     return saved;
   }
 
-  async getPendingEvaluations(userId: string, role: string, lessonId?: number, testId?: number) {
+  async getPendingEvaluations(
+    userId: string,
+    role: string,
+    lessonId?: number,
+    testId?: number,
+  ) {
     if (role !== 'admin' && role !== 'employee') throw new ForbiddenException();
 
     const whereCondition: any = { isDraft: false };
@@ -565,7 +726,11 @@ export class TestsService {
 
     return this.submissionRepo.find({
       where: whereCondition,
-      relations: { test: { lesson: { course: true }, course: true }, user: true, answers: { question: true } },
+      relations: {
+        test: { lesson: { course: true }, course: true },
+        user: true,
+        answers: { question: true },
+      },
       order: { createdAt: 'DESC' },
     });
   }
@@ -575,7 +740,7 @@ export class TestsService {
 
     const submission = await this.submissionRepo.findOne({
       where: { id: evalDto.testSubmissionId },
-      relations: { answers: { question: true } }
+      relations: { answers: { question: true } },
     });
 
     if (!submission) throw new NotFoundException('Submission not found');
@@ -583,10 +748,17 @@ export class TestsService {
     let newMarksAdded = 0;
 
     for (const ev of evalDto.evaluations) {
-      const ans = submission.answers.find(a => a.id === ev.submissionAnswerId);
-      if (ans && (ans.question.type === 'CQ' || ans.question.type === 'Video')) {
+      const ans = submission.answers.find(
+        (a) => a.id === ev.submissionAnswerId,
+      );
+      if (
+        ans &&
+        (ans.question.type === 'CQ' || ans.question.type === 'Video')
+      ) {
         if (ev.marksAwarded < 0 || ev.marksAwarded > ans.question.marks) {
-          throw new BadRequestException(`Awarded marks (${ev.marksAwarded}) cannot exceed maximum allowed marks (${ans.question.marks}) for question "${ans.question.questionText}".`);
+          throw new BadRequestException(
+            `Awarded marks (${ev.marksAwarded}) cannot exceed maximum allowed marks (${ans.question.marks}) for question "${ans.question.questionText}".`,
+          );
         }
         ans.marksAwarded = ev.marksAwarded;
         ans.evaluatorComment = ev.evaluatorComment || '';
@@ -597,7 +769,7 @@ export class TestsService {
 
     submission.marksObtained += newMarksAdded;
     submission.status = 'Evaluated';
-    
+
     // Save answers
     await this.answerRepo.save(submission.answers);
     const savedSub = await this.submissionRepo.save(submission);
@@ -606,7 +778,7 @@ export class TestsService {
     try {
       const fullSubmission = await this.submissionRepo.findOne({
         where: { id: savedSub.id },
-        relations: { user: true, test: true }
+        relations: { user: true, test: true },
       });
       if (fullSubmission && fullSubmission.user) {
         const notification = new Notification();
@@ -615,16 +787,22 @@ export class TestsService {
         notification.actionLink = `/dashboard?tab=my-learning`;
         const savedNotif = await this.notificationRepo.save(notification);
 
-        this.notificationsGateway.sendNotificationToUser(fullSubmission.user.userId, {
-          id: savedNotif.id,
-          message: savedNotif.message,
-          actionLink: savedNotif.actionLink,
-          createdAt: savedNotif.createdAt,
-          isRead: false
-        });
+        this.notificationsGateway.sendNotificationToUser(
+          fullSubmission.user.userId,
+          {
+            id: savedNotif.id,
+            message: savedNotif.message,
+            actionLink: savedNotif.actionLink,
+            createdAt: savedNotif.createdAt,
+            isRead: false,
+          },
+        );
       }
     } catch (notifErr) {
-      console.error(`[Notification] Failed to notify user for manual evaluation:`, notifErr);
+      console.error(
+        `[Notification] Failed to notify user for manual evaluation:`,
+        notifErr,
+      );
     }
 
     return savedSub;
@@ -632,12 +810,15 @@ export class TestsService {
 
   async getLeaderboard(lessonId: number) {
     // Find all evaluated submissions for tests linked to this lesson
-    const tests = await this.testRepo.find({ where: { lesson: { id: lessonId } } });
+    const tests = await this.testRepo.find({
+      where: { lesson: { id: lessonId } },
+    });
     if (!tests.length) return [];
 
-    const testIds = tests.map(t => t.id);
-    
-    const submissions = await this.submissionRepo.createQueryBuilder('sub')
+    const testIds = tests.map((t) => t.id);
+
+    const submissions = await this.submissionRepo
+      .createQueryBuilder('sub')
       .leftJoinAndSelect('sub.user', 'user')
       .where('sub.testId IN (:...testIds)', { testIds })
       .andWhere('sub.isDraft = :isDraft', { isDraft: false })
@@ -665,7 +846,9 @@ export class TestsService {
       if (b.marksObtained !== a.marksObtained) {
         return b.marksObtained - a.marksObtained;
       }
-      return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+      return (
+        new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
+      );
     });
 
     return leaderboard.slice(0, 5);
@@ -677,42 +860,71 @@ export class TestsService {
       try {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
-          console.log(`[Trash Cleanup] Successfully deleted orphaned reference script: ${filePath}`);
+          console.log(
+            `[Trash Cleanup] Successfully deleted orphaned reference script: ${filePath}`,
+          );
         }
       } catch (err) {
-        console.error(`[Trash Cleanup] Failed to delete orphaned reference script: ${filePath}`, err);
+        console.error(
+          `[Trash Cleanup] Failed to delete orphaned reference script: ${filePath}`,
+          err,
+        );
       }
     }
   }
 
   async updateQuestion(
     questionId: number,
-    data: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; postureMarks?: number; voiceMarks?: number; accuracyMarks?: number; evaluationType?: string; referenceScript?: string },
+    data: {
+      questionText?: string;
+      options?: string[];
+      correctAnswers?: string[];
+      marks?: number;
+      postureMarks?: number;
+      voiceMarks?: number;
+      accuracyMarks?: number;
+      evaluationType?: string;
+      referenceScript?: string;
+    },
     role: string,
   ) {
     if (role !== 'admin' && role !== 'employee') {
       throw new ForbiddenException('Only admin or employee can edit questions');
     }
-    const question = await this.questionRepo.findOne({ where: { id: questionId }, relations: { test: true } });
+    const question = await this.questionRepo.findOne({
+      where: { id: questionId },
+      relations: { test: true },
+    });
     if (!question) throw new NotFoundException('Question not found');
 
-    if (data.questionText !== undefined) question.questionText = data.questionText;
+    if (data.questionText !== undefined)
+      question.questionText = data.questionText;
     if (data.options !== undefined) question.options = data.options;
-    if (data.correctAnswers !== undefined) question.correctAnswers = data.correctAnswers;
+    if (data.correctAnswers !== undefined)
+      question.correctAnswers = data.correctAnswers;
     if (data.marks !== undefined) question.marks = data.marks;
-    if (data.postureMarks !== undefined) question.postureMarks = data.postureMarks;
+    if (data.postureMarks !== undefined)
+      question.postureMarks = data.postureMarks;
     if (data.voiceMarks !== undefined) question.voiceMarks = data.voiceMarks;
-    if (data.accuracyMarks !== undefined) question.accuracyMarks = data.accuracyMarks;
-    if (data.evaluationType !== undefined) question.evaluationType = data.evaluationType;
+    if (data.accuracyMarks !== undefined)
+      question.accuracyMarks = data.accuracyMarks;
+    if (data.evaluationType !== undefined)
+      question.evaluationType = data.evaluationType;
 
-    if (data.referenceScript !== undefined && question.type === 'Video' && question.test) {
+    if (
+      data.referenceScript !== undefined &&
+      question.type === 'Video' &&
+      question.test
+    ) {
       const oldScript = question.test.referenceScript;
-      
+
       // If there was an old file path, and it is different from the new script, delete it!
       if (oldScript && oldScript !== data.referenceScript) {
-        const isOldFile = oldScript.startsWith("http") || 
-                          oldScript.startsWith("/") ||
-                          (oldScript.length < 200 && /\.(pdf|docx|doc|pptx|ppt)$/i.test(oldScript));
+        const isOldFile =
+          oldScript.startsWith('http') ||
+          oldScript.startsWith('/') ||
+          (oldScript.length < 200 &&
+            /\.(pdf|docx|doc|pptx|ppt)$/i.test(oldScript));
         if (isOldFile) {
           let pathPart = oldScript;
           if (pathPart.includes('/uploads/')) {
@@ -730,7 +942,9 @@ export class TestsService {
   }
 
   async getLessonSubmissions(lessonId: number) {
-    const tests = await this.testRepo.find({ where: { lesson: { id: lessonId } } });
+    const tests = await this.testRepo.find({
+      where: { lesson: { id: lessonId } },
+    });
     if (!tests.length) return { submissions: [], remaining: 0 };
 
     const testIds = tests.map((t) => t.id);
@@ -741,11 +955,20 @@ export class TestsService {
       order: { submittedAt: 'DESC' },
     });
 
-    const lesson = await this.lessonRepo.findOne({ where: { id: lessonId }, relations: { course: true } });
+    const lesson = await this.lessonRepo.findOne({
+      where: { id: lessonId },
+      relations: { course: true },
+    });
     let remaining = 0;
     if (lesson?.course?.id) {
-      const totalEnrolled = await this.enrollmentRepo.count({ where: { course: { id: lesson.course.id } } });
-      const uniqueSubmittedUserIds = new Set(submissions.map(s => s.user?.id).filter((id): id is number => id !== undefined && id !== null));
+      const totalEnrolled = await this.enrollmentRepo.count({
+        where: { course: { id: lesson.course.id } },
+      });
+      const uniqueSubmittedUserIds = new Set(
+        submissions
+          .map((s) => s.user?.id)
+          .filter((id): id is number => id !== undefined && id !== null),
+      );
       remaining = totalEnrolled - uniqueSubmittedUserIds.size;
     }
 
@@ -754,16 +977,23 @@ export class TestsService {
 
   async updateTest(testId: number, dto: UpdateTestDto, role: string) {
     if (role !== 'admin' && role !== 'employee') {
-      throw new ForbiddenException('Only admin or employee can edit test configuration');
+      throw new ForbiddenException(
+        'Only admin or employee can edit test configuration',
+      );
     }
     const test = await this.testRepo.findOne({ where: { id: testId } });
     if (!test) throw new NotFoundException('Test not found');
 
     if (dto.title !== undefined) test.title = dto.title;
     if (dto.description !== undefined) test.description = dto.description;
-    if (dto.referenceScript !== undefined) test.referenceScript = dto.referenceScript || undefined;
-    if (dto.startTime !== undefined) test.startTime = dto.startTime ? new Date(dto.startTime) : undefined as any;
-    if (dto.endTime !== undefined) test.endTime = dto.endTime ? new Date(dto.endTime) : undefined as any;
+    if (dto.referenceScript !== undefined)
+      test.referenceScript = dto.referenceScript || undefined;
+    if (dto.startTime !== undefined)
+      test.startTime = dto.startTime
+        ? new Date(dto.startTime)
+        : (undefined as any);
+    if (dto.endTime !== undefined)
+      test.endTime = dto.endTime ? new Date(dto.endTime) : (undefined as any);
 
     // Recalculate status for Standalone exams if times changed
     if (test.testType === 'Standalone') {
@@ -780,7 +1010,9 @@ export class TestsService {
     return this.testRepo.save(test);
   }
 
-  async deleteTest(testId: number): Promise<{ success: boolean; message: string }> {
+  async deleteTest(
+    testId: number,
+  ): Promise<{ success: boolean; message: string }> {
     const test = await this.testRepo.findOne({ where: { id: testId } });
     if (!test) {
       throw new NotFoundException('Test not found');

@@ -1,4 +1,19 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Put, Delete, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  Put,
+  Delete,
+  ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  Query,
+} from '@nestjs/common';
 import { TestsService } from './tests.service';
 import { ExamSchedulerService } from './exam-scheduler.service';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -31,12 +46,16 @@ export class TestsController {
       storage: diskStorage({
         destination: './uploads/test-videos',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
       fileFilter: (req, file, cb) => {
-        if (file.mimetype.match(/\/(mp4|mpeg|quicktime|webm|ogg)$/) || file.originalname.match(/\.(mp4|mov|avi|webm|ogg)$/i)) {
+        if (
+          file.mimetype.match(/\/(mp4|mpeg|quicktime|webm|ogg)$/) ||
+          file.originalname.match(/\.(mp4|mov|avi|webm|ogg)$/i)
+        ) {
           cb(null, true);
         } else {
           cb(new BadRequestException('Only video files are allowed.'), false);
@@ -72,7 +91,10 @@ export class TestsController {
   }
 
   @Get('standalone/:courseId')
-  async getStandaloneExamsForCourse(@Param('courseId') courseId: string, @Req() req: any) {
+  async getStandaloneExamsForCourse(
+    @Param('courseId') courseId: string,
+    @Req() req: any,
+  ) {
     const role = req.user?.role || 'user';
     return this.testsService.getStandaloneExamsForCourse(courseId, role);
   }
@@ -89,7 +111,12 @@ export class TestsController {
     @Query('testId') testId?: string,
   ) {
     const { userId, role } = req.user;
-    return this.testsService.getPendingEvaluations(userId, role, lessonId ? +lessonId : undefined, testId ? +testId : undefined);
+    return this.testsService.getPendingEvaluations(
+      userId,
+      role,
+      lessonId ? +lessonId : undefined,
+      testId ? +testId : undefined,
+    );
   }
 
   @Put('evaluations')
@@ -106,7 +133,18 @@ export class TestsController {
   @Put('questions/:questionId')
   async updateQuestion(
     @Param('questionId') questionId: string,
-    @Body() body: { questionText?: string; options?: string[]; correctAnswers?: string[]; marks?: number; postureMarks?: number; voiceMarks?: number; accuracyMarks?: number; evaluationType?: string; referenceScript?: string },
+    @Body()
+    body: {
+      questionText?: string;
+      options?: string[];
+      correctAnswers?: string[];
+      marks?: number;
+      postureMarks?: number;
+      voiceMarks?: number;
+      accuracyMarks?: number;
+      evaluationType?: string;
+      referenceScript?: string;
+    },
     @Req() req: any,
   ) {
     const { role } = req.user;
@@ -114,10 +152,15 @@ export class TestsController {
   }
 
   @Get('lesson/:lessonId/submissions')
-  async getLessonSubmissions(@Param('lessonId') lessonId: string, @Req() req: any) {
+  async getLessonSubmissions(
+    @Param('lessonId') lessonId: string,
+    @Req() req: any,
+  ) {
     const { role } = req.user;
     if (role === 'user') {
-      throw new ForbiddenException('Only admin and employee users can view all student marks');
+      throw new ForbiddenException(
+        'Only admin and employee users can view all student marks',
+      );
     }
     return this.testsService.getLessonSubmissions(+lessonId);
   }
@@ -126,12 +169,12 @@ export class TestsController {
   async getSubmissionById(@Param('id') id: string, @Req() req: any) {
     const { role } = req.user;
     if (role === 'user') {
-      throw new ForbiddenException('Only admin and employee users can view full student submission details');
+      throw new ForbiddenException(
+        'Only admin and employee users can view full student submission details',
+      );
     }
     return this.testsService.getSubmissionById(+id);
   }
-
- 
 
   @Put(':testId')
   async updateTest(
@@ -156,7 +199,9 @@ export class TestsController {
   async finalizeExam(@Param('examId') examId: string, @Req() req: any) {
     const { role } = req.user;
     if (role !== 'admin' && role !== 'employee') {
-      throw new ForbiddenException('Only admin and employee can finalize exams');
+      throw new ForbiddenException(
+        'Only admin and employee can finalize exams',
+      );
     }
     return this.examSchedulerService.finalizeExamManually(+examId);
   }

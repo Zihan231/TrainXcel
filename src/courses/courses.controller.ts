@@ -1,4 +1,21 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, Req, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Req,
+  ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -21,7 +38,8 @@ export class CoursesController {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
@@ -35,7 +53,12 @@ export class CoursesController {
         ) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('Unsupported file type. Only Video, PDF, PPT, and DOCX files are allowed.'), false);
+          cb(
+            new BadRequestException(
+              'Unsupported file type. Only Video, PDF, PPT, and DOCX files are allowed.',
+            ),
+            false,
+          );
         }
       },
     }),
@@ -43,7 +66,9 @@ export class CoursesController {
   async uploadFile(@UploadedFile() file: any, @Req() req: any) {
     const { role } = req.user;
     if (role === 'user') {
-      throw new ForbiddenException('Only admin and employee users can upload course files.');
+      throw new ForbiddenException(
+        'Only admin and employee users can upload course files.',
+      );
     }
     if (!file) {
       throw new BadRequestException('File is required');
@@ -63,7 +88,8 @@ export class CoursesController {
       storage: diskStorage({
         destination: './uploads/thumbnails',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
@@ -71,7 +97,12 @@ export class CoursesController {
         if (file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('Unsupported file type. Only JPG, PNG, GIF, and WEBP images are allowed.'), false);
+          cb(
+            new BadRequestException(
+              'Unsupported file type. Only JPG, PNG, GIF, and WEBP images are allowed.',
+            ),
+            false,
+          );
         }
       },
     }),
@@ -79,7 +110,9 @@ export class CoursesController {
   async uploadThumbnail(@UploadedFile() file: any, @Req() req: any) {
     const { role } = req.user;
     if (role === 'user') {
-      throw new ForbiddenException('Only admin and employee users can upload thumbnails.');
+      throw new ForbiddenException(
+        'Only admin and employee users can upload thumbnails.',
+      );
     }
     if (!file) {
       throw new BadRequestException('Image file is required');
@@ -94,7 +127,10 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   async getDashboardStats(@Req() req: any) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getDashboardStats();
   }
 
@@ -102,7 +138,10 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   async getMonthlyProgress(@Req() req: any) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getMonthlyProgress();
   }
 
@@ -110,7 +149,10 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   async getCourseProgressComparison(@Req() req: any) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getCourseProgressComparison();
   }
 
@@ -118,7 +160,10 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   async getCoursePerformance(@Req() req: any) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getCoursePerformance();
   }
 
@@ -130,7 +175,10 @@ export class CoursesController {
     @Query('limit') limit?: string,
   ) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getUserPerformance(page, limit);
   }
 
@@ -142,7 +190,10 @@ export class CoursesController {
     @Query('limit') limit?: string,
   ) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getCategoryStats(page, limit);
   }
 
@@ -150,7 +201,10 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   async getMaterialStats(@Req() req: any) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getMaterialStats();
   }
 
@@ -162,7 +216,10 @@ export class CoursesController {
     @Query('limit') limit?: string,
   ) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getAtRiskLearners(page, limit);
   }
 
@@ -170,7 +227,10 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard)
   async getRecentActivity(@Req() req: any) {
     const { userId, role } = req.user;
-    if (role === 'user') throw new ForbiddenException('Only admins and employees can view global stats');
+    if (role === 'user')
+      throw new ForbiddenException(
+        'Only admins and employees can view global stats',
+      );
     return this.coursesService.getRecentActivity();
   }
 
@@ -209,7 +269,9 @@ export class CoursesController {
   async deleteCategory(@Param('id') id: string, @Req() req: any) {
     const { role } = req.user;
     if (role !== 'admin' && role !== 'employee') {
-      throw new ForbiddenException('Only admins and employees can delete categories');
+      throw new ForbiddenException(
+        'Only admins and employees can delete categories',
+      );
     }
     return this.coursesService.deleteCategory(+id);
   }
@@ -243,7 +305,12 @@ export class CoursesController {
     @Query('type') type?: 'course' | 'lesson',
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
   ) {
-    return this.coursesService.getTrashItems(req.user.userId, q, type, sortOrder || 'DESC');
+    return this.coursesService.getTrashItems(
+      req.user.userId,
+      q,
+      type,
+      sortOrder || 'DESC',
+    );
   }
 
   @Delete('trash/empty')
@@ -261,7 +328,12 @@ export class CoursesController {
     @Query('status') status: string = 'all',
   ) {
     const { userId } = req.user;
-    return this.coursesService.getMyLearningPaginated(userId, Number(page), Number(limit), status);
+    return this.coursesService.getMyLearningPaginated(
+      userId,
+      Number(page),
+      Number(limit),
+      status,
+    );
   }
 
   @Get('user-learning/:userId')
@@ -275,9 +347,16 @@ export class CoursesController {
   ) {
     const { role } = req.user;
     if (role !== 'admin' && role !== 'employee') {
-      throw new ForbiddenException('Only admin and employee users can view other users learning progress.');
+      throw new ForbiddenException(
+        'Only admin and employee users can view other users learning progress.',
+      );
     }
-    return this.coursesService.getMyLearningPaginated(targetUserId, Number(page), Number(limit), status);
+    return this.coursesService.getMyLearningPaginated(
+      targetUserId,
+      Number(page),
+      Number(limit),
+      status,
+    );
   }
 
   @Get(':courseId')
@@ -290,7 +369,10 @@ export class CoursesController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
-  async createCourse(@Body() createCourseDto: CreateCourseDto, @Req() req: any) {
+  async createCourse(
+    @Body() createCourseDto: CreateCourseDto,
+    @Req() req: any,
+  ) {
     return this.coursesService.createCourse(createCourseDto, req.user.userId);
   }
 
@@ -301,7 +383,11 @@ export class CoursesController {
     @Body() updateCourseDto: UpdateCourseDto,
     @Req() req: any,
   ) {
-    return this.coursesService.updateCourse(courseId, updateCourseDto, req.user.userId);
+    return this.coursesService.updateCourse(
+      courseId,
+      updateCourseDto,
+      req.user.userId,
+    );
   }
 
   @Patch(':courseId/status')
@@ -311,7 +397,11 @@ export class CoursesController {
     @Body('status') status: string,
     @Req() req: any,
   ) {
-    return this.coursesService.updateCourseStatus(courseId, status, req.user.userId);
+    return this.coursesService.updateCourseStatus(
+      courseId,
+      status,
+      req.user.userId,
+    );
   }
 
   @Patch(':courseId/restore')
@@ -357,7 +447,11 @@ export class CoursesController {
     @Body() createLessonDto: CreateLessonDto,
     @Req() req: any,
   ) {
-    return this.coursesService.addLessonToCourse(courseId, createLessonDto, req.user.userId);
+    return this.coursesService.addLessonToCourse(
+      courseId,
+      createLessonDto,
+      req.user.userId,
+    );
   }
 
   @Patch(':courseId/lessons/:lessonId')
@@ -368,7 +462,12 @@ export class CoursesController {
     @Body() updateLessonDto: UpdateLessonDto,
     @Req() req: any,
   ) {
-    return this.coursesService.updateLesson(courseId, lessonId, updateLessonDto, req.user.userId);
+    return this.coursesService.updateLesson(
+      courseId,
+      lessonId,
+      updateLessonDto,
+      req.user.userId,
+    );
   }
 
   @Patch(':courseId/lessons/:lessonId/restore')
@@ -378,7 +477,11 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @Req() req: any,
   ) {
-    return this.coursesService.restoreLesson(courseId, lessonId, req.user.userId);
+    return this.coursesService.restoreLesson(
+      courseId,
+      lessonId,
+      req.user.userId,
+    );
   }
 
   @Delete(':courseId/lessons/:lessonId')
@@ -388,7 +491,11 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @Req() req: any,
   ) {
-    return this.coursesService.deleteLesson(courseId, lessonId, req.user.userId);
+    return this.coursesService.deleteLesson(
+      courseId,
+      lessonId,
+      req.user.userId,
+    );
   }
 
   @Delete(':courseId/lessons/:lessonId/permanent')
@@ -398,7 +505,11 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @Req() req: any,
   ) {
-    return this.coursesService.hardDeleteLesson(courseId, lessonId, req.user.userId);
+    return this.coursesService.hardDeleteLesson(
+      courseId,
+      lessonId,
+      req.user.userId,
+    );
   }
 
   // --- Enrollment & Progress ---
@@ -417,12 +528,20 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @Req() req: any,
   ) {
-    return this.coursesService.completeLesson(courseId, lessonId, req.user.userId);
+    return this.coursesService.completeLesson(
+      courseId,
+      lessonId,
+      req.user.userId,
+    );
   }
 
   @Get(':courseId/progress/:userId')
   @UseGuards(JwtAuthGuard)
-  async getProgress(@Req() req: any, @Param('courseId') courseId: string, @Param('userId') targetUserId: string) {
+  async getProgress(
+    @Req() req: any,
+    @Param('courseId') courseId: string,
+    @Param('userId') targetUserId: string,
+  ) {
     const { userId, role } = req.user;
     return this.coursesService.getUserProgress(courseId, targetUserId);
   }

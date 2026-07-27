@@ -1,4 +1,10 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+} from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -9,7 +15,9 @@ import { JwtService } from '@nestjs/jwt';
   },
 })
 @Injectable()
-export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class NotificationsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -23,7 +31,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       let token = client.handshake.query.token as string;
       if (!token && client.handshake.headers.cookie) {
         const cookieStr = client.handshake.headers.cookie;
-        const jwtCookie = cookieStr.split(';').find(c => c.trim().startsWith('jwt='));
+        const jwtCookie = cookieStr
+          .split(';')
+          .find((c) => c.trim().startsWith('jwt='));
         if (jwtCookie) {
           token = jwtCookie.split('=')[1];
         }
@@ -42,7 +52,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         client.disconnect();
       }
     } catch (err: any) {
-      this.logger.warn(`Invalid token for connection: ${client.id} - ${err.message}`);
+      this.logger.warn(
+        `Invalid token for connection: ${client.id} - ${err.message}`,
+      );
       client.disconnect();
     }
   }
@@ -64,7 +76,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   sendNotificationToUser(userId: string, notification: any) {
     const sockets = this.userSockets.get(userId);
     if (sockets) {
-      sockets.forEach(socketId => {
+      sockets.forEach((socketId) => {
         this.server.to(socketId).emit('notification', notification);
       });
     }

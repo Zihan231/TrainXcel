@@ -1,4 +1,20 @@
-import { Controller, Post, Body, Get, HttpCode, HttpStatus, Param, Patch, Query, Res, UseGuards, Req, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Query,
+  Res,
+  UseGuards,
+  Req,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -13,8 +29,6 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -49,7 +63,8 @@ export class AuthController {
   @Get('token')
   @UseGuards(JwtAuthGuard)
   async getSocketToken(@Req() req: any) {
-    const token = req.cookies?.['jwt'] || req.headers.authorization?.split(' ')[1];
+    const token =
+      req.cookies?.['jwt'] || req.headers.authorization?.split(' ')[1];
     return { token };
   }
 
@@ -91,7 +106,11 @@ export class AuthController {
     @Body() updateUserDto: UpdateUserDto,
     @Req() req: any,
   ) {
-    return this.authService.updateUserDetails(userId, updateUserDto, req.user.userId);
+    return this.authService.updateUserDetails(
+      userId,
+      updateUserDto,
+      req.user.userId,
+    );
   }
 
   @Patch('users/:userId/role')
@@ -112,7 +131,8 @@ export class AuthController {
       storage: diskStorage({
         destination: './uploads/users_dp',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
@@ -120,7 +140,12 @@ export class AuthController {
         if (file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('Unsupported file type. Only JPG, PNG, GIF, and WEBP images are allowed.'), false);
+          cb(
+            new BadRequestException(
+              'Unsupported file type. Only JPG, PNG, GIF, and WEBP images are allowed.',
+            ),
+            false,
+          );
         }
       },
     }),

@@ -46,13 +46,15 @@ export class TrashCleanupService {
     });
 
     if (expiredLessons.length > 0) {
-      this.logger.log(`Purging ${expiredLessons.length} expired soft-deleted lessons...`);
+      this.logger.log(
+        `Purging ${expiredLessons.length} expired soft-deleted lessons...`,
+      );
       for (const l of expiredLessons) {
         if (l.materialLink) {
           this.deletePhysicalFile(l.materialLink);
         }
       }
-      await this.lessonRepository.delete(expiredLessons.map(l => l.id));
+      await this.lessonRepository.delete(expiredLessons.map((l) => l.id));
     }
 
     // 2. Purge expired soft-deleted courses
@@ -62,9 +64,11 @@ export class TrashCleanupService {
     });
 
     if (expiredCourses.length > 0) {
-      this.logger.log(`Purging ${expiredCourses.length} expired soft-deleted courses...`);
-      
-      const courseIds = expiredCourses.map(c => c.id);
+      this.logger.log(
+        `Purging ${expiredCourses.length} expired soft-deleted courses...`,
+      );
+
+      const courseIds = expiredCourses.map((c) => c.id);
       const courseLessons = await this.lessonRepository.find({
         where: { course: { id: In(courseIds) } },
         withDeleted: true,

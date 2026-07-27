@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Course } from './course.entity';
 import { Lesson } from './lesson.entity';
 import { Question } from './question.entity';
@@ -28,10 +36,16 @@ export class Test {
   @Column({ type: 'timestamp', nullable: true })
   endTime: Date;
 
-  @ManyToOne(() => Course, (course) => course.tests, { onDelete: 'CASCADE', nullable: true })
+  @ManyToOne(() => Course, (course) => course.tests, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
   course: Course;
 
-  @ManyToOne(() => Lesson, (lesson) => lesson.tests, { onDelete: 'CASCADE', nullable: true })
+  @ManyToOne(() => Lesson, (lesson) => lesson.tests, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
   lesson: Lesson;
 
   @OneToMany(() => Question, (question) => question.test, { cascade: true })

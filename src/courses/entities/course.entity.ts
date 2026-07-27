@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  Index,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+} from 'typeorm';
 import { Category } from './category.entity';
 import { Lesson } from './lesson.entity';
 import { Enrollment } from './enrollment.entity';
@@ -29,7 +39,10 @@ export class Course {
   @Column({ nullable: true })
   thumbnailUrl: string;
 
-  @ManyToOne(() => Category, (category) => category.courses, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => Category, (category) => category.courses, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   category: Category | null;
 
   @OneToMany(() => Lesson, (lesson) => lesson.course, { cascade: true })

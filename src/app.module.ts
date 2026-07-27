@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
+import { ExamGroupsModule } from './exam-groups/exam-groups.module';
 
 import { UploadsController } from './uploads.controller';
 
@@ -31,6 +32,7 @@ import { UploadsController } from './uploads.controller';
     }),
     AuthModule,
     CoursesModule,
+    ExamGroupsModule,
   ],
   controllers: [AppController, UploadsController],
   providers: [AppService],

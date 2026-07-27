@@ -1,4 +1,10 @@
-import { IsOptional, IsArray, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SubmissionAnswerDto {

@@ -14,9 +14,12 @@ export class ExamSchedulerService {
 
   constructor(
     @InjectRepository(Test) private readonly testRepository: Repository<Test>,
-    @InjectRepository(TestSubmission) private readonly submissionRepository: Repository<TestSubmission>,
-    @InjectRepository(SubmissionAnswer) private readonly answerRepository: Repository<SubmissionAnswer>,
-    @InjectRepository(Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
+    @InjectRepository(TestSubmission)
+    private readonly submissionRepository: Repository<TestSubmission>,
+    @InjectRepository(SubmissionAnswer)
+    private readonly answerRepository: Repository<SubmissionAnswer>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepository: Repository<Enrollment>,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
   ) {}
 
@@ -71,7 +74,9 @@ export class ExamSchedulerService {
     await this.testRepository.save(exam);
 
     if (!exam.course) {
-      this.logger.warn(`Exam ${exam.id} has no associated course, skipping enrollment check.`);
+      this.logger.warn(
+        `Exam ${exam.id} has no associated course, skipping enrollment check.`,
+      );
       return;
     }
 
@@ -135,9 +140,13 @@ export class ExamSchedulerService {
       if (!question) continue;
 
       if (question.type === 'MCQ') {
-        const provided = Array.isArray(answer.providedAnswer) ? answer.providedAnswer : [answer.providedAnswer];
+        const provided = Array.isArray(answer.providedAnswer)
+          ? answer.providedAnswer
+          : [answer.providedAnswer];
         const correct = question.correctAnswers || [];
-        const isCorrect = provided.length === correct.length && provided.every(val => correct.includes(val));
+        const isCorrect =
+          provided.length === correct.length &&
+          provided.every((val) => correct.includes(val));
         if (isCorrect) {
           answer.marksAwarded = question.marks;
           totalMarks += question.marks;

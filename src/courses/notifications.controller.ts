@@ -1,4 +1,13 @@
-import { Controller, Get, UseGuards, Req, Put, Param, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Req,
+  Put,
+  Param,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -17,7 +26,9 @@ export class NotificationsController {
 
   @Get()
   async getNotifications(@Req() req: any) {
-    const user = await this.userRepository.findOne({ where: { userId: req.user.userId } });
+    const user = await this.userRepository.findOne({
+      where: { userId: req.user.userId },
+    });
     if (!user) return [];
 
     return this.notificationRepository.find({
@@ -29,7 +40,9 @@ export class NotificationsController {
 
   @Put(':id/read')
   async markAsRead(@Param('id') id: string, @Req() req: any) {
-    const user = await this.userRepository.findOne({ where: { userId: req.user.userId } });
+    const user = await this.userRepository.findOne({
+      where: { userId: req.user.userId },
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }

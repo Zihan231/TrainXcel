@@ -1,52 +1,41 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 import { GoogleGenAI } from '@google/genai';
 
-
-
 @Injectable()
-
 export class GeminiAnalysisService {
-
   private readonly logger = new Logger(GeminiAnalysisService.name);
 
   private ai: GoogleGenAI;
-
- 
 
   private projectId = 'gen-lang-client-0247762738';
 
   private location = 'global';
 
-
-
   constructor() {
-
     this.ai = new GoogleGenAI({
-
       vertexai: true,
 
       project: this.projectId,
 
-      location: this.location
-
+      location: this.location,
     });
-
   }
-
-
 
   async evaluateCandidate(
     audioGcsUri: string,
     snapshotUris: string[],
     scriptDocumentGcsUri: string,
-    scriptMimeType: string,      
+    scriptMimeType: string,
     postureMax: number,
     voiceMax: number,
     accuracyMax: number,
-    scriptText?: string
+    scriptText?: string,
   ): Promise<any> {
-   
     // We dynamically inject the max marks into the prompt instructions and schema
     const promptText = `
       You are an expert evaluator assessing a candidate's medical detailing performance.
@@ -94,90 +83,65 @@ export class GeminiAnalysisService {
       }
     `;
 
-
-
     // Map all modalities into the payload: Text + Audio + PDF/Images (DOCX/PPTX passed as text)
 
     const parts: any[] = [
-
       { text: promptText },
 
       { fileData: { mimeType: 'audio/mp3', fileUri: audioGcsUri } },
 
-      ...snapshotUris.map(uri => ({
-
-        fileData: { mimeType: 'image/jpeg', fileUri: uri }
-
-      }))
-
+      ...snapshotUris.map((uri) => ({
+        fileData: { mimeType: 'image/jpeg', fileUri: uri },
+      })),
     ];
-    
+
     if (scriptText) {
-      parts.push({ text: `\n\nREFERENCE SCRIPT DOCUMENT TEXT:\n${scriptText}` });
+      parts.push({
+        text: `\n\nREFERENCE SCRIPT DOCUMENT TEXT:\n${scriptText}`,
+      });
     } else {
-      parts.push({ fileData: { mimeType: scriptMimeType, fileUri: scriptDocumentGcsUri } });
+      parts.push({
+        fileData: { mimeType: scriptMimeType, fileUri: scriptDocumentGcsUri },
+      });
     }
 
-
-
     try {
-
-      this.logger.log(`Dispatching multimodal payload to Gemini. Max marks: P:${postureMax}, V:${voiceMax}, A:${accuracyMax}`);
-
-     
+      this.logger.log(
+        `Dispatching multimodal payload to Gemini. Max marks: P:${postureMax}, V:${voiceMax}, A:${accuracyMax}`,
+      );
 
       const response = await this.ai.models.generateContent({
-
         model: 'gemini-3.5-flash',
 
-        contents: [
-
-          { role: 'user', parts }
-
-        ],
+        contents: [{ role: 'user', parts }],
 
         config: {
-
           temperature: 0.1,
 
           responseMimeType: 'application/json',
-
-        }
-
+        },
       });
-
-     
 
       const rawText = response.text;
 
-
-
       if (!rawText) {
-
         throw new Error('Gemini API returned an empty text response.');
-
       }
-
-     
 
       this.logger.log('Successfully received evaluation from Gemini.');
 
-     
-
-      const cleanedText = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+      const cleanedText = rawText
+        .replace(/```json/gi, '')
+        .replace(/```/gi, '')
+        .trim();
 
       return JSON.parse(cleanedText);
-
-
-
     } catch (error) {
-
       this.logger.error('Gemini Analysis failed:', error);
 
-      throw new InternalServerErrorException('Failed to analyze candidate performance.');
-
+      throw new InternalServerErrorException(
+        'Failed to analyze candidate performance.',
+      );
     }
-
   }
-
 }

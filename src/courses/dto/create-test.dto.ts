@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsEnum, IsArray, ValidateNested, IsNumber, IsDateString, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  IsDateString,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QuestionDto {

@@ -27,16 +27,27 @@ import { GeminiAnalysisService } from './gemini-analysis.service';
 import { CloudStorageService } from './cloud-storage.service';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Course, Lesson, Category, Enrollment, User, Test, Question, TestSubmission, SubmissionAnswer, Notification]),
+    TypeOrmModule.forFeature([
+      Course,
+      Lesson,
+      Category,
+      Enrollment,
+      User,
+      Test,
+      Question,
+      TestSubmission,
+      SubmissionAnswer,
+      Notification,
+    ]),
     AuthModule,
     ConfigModule,
   ],
   controllers: [CoursesController, NotificationsController, TestsController],
   providers: [
-    CoursesService, 
-    TrashCleanupService, 
-    TestsService, 
-    ExamSchedulerService, 
+    CoursesService,
+    TrashCleanupService,
+    TestsService,
+    ExamSchedulerService,
     NotificationsGateway,
     // SpeechService,
     MediaProcessorService,

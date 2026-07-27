@@ -19,9 +19,13 @@ export class SubmissionAnswer {
   @Column({ nullable: true })
   evaluatedBy: string;
 
-  @ManyToOne(() => TestSubmission, (submission) => submission.answers, { onDelete: 'CASCADE' })
+  @ManyToOne(() => TestSubmission, (submission) => submission.answers, {
+    onDelete: 'CASCADE',
+  })
   submission: TestSubmission;
 
-  @ManyToOne(() => Question, (question) => question.answers, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Question, (question) => question.answers, {
+    onDelete: 'CASCADE',
+  })
   question: Question;
 }

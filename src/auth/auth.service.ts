@@ -1,4 +1,12 @@
-import { Injectable, ConflictException, UnauthorizedException, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
@@ -25,8 +33,6 @@ export class AuthService {
     return this.jwtService.sign({ userId, role });
   }
 
-
-
   private async generateNextUserId(): Promise<string> {
     const lastUser = await this.userRepository.findOne({
       where: {},
@@ -40,19 +46,25 @@ export class AuthService {
     return `TX-${String(nextNum).padStart(4, '0')}`;
   }
 
-
-
-
-  async createEmployee(createEmployeeDto: CreateEmployeeDto, requesterId: string): Promise<Omit<User, 'password'>> {
-    const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+  async createEmployee(
+    createEmployeeDto: CreateEmployeeDto,
+    requesterId: string,
+  ): Promise<Omit<User, 'password'>> {
+    const requester = await this.userRepository.findOne({
+      where: { userId: requesterId },
+    });
     if (!requester) {
-      throw new NotFoundException(`Admin user with ID ${requesterId} not found`);
+      throw new NotFoundException(
+        `Admin user with ID ${requesterId} not found`,
+      );
     }
     if (requester.role !== 'admin') {
       throw new ForbiddenException('Only admin users can add employees');
     }
 
-    const existingUser = await this.userRepository.findOne({ where: { email: createEmployeeDto.email } });
+    const existingUser = await this.userRepository.findOne({
+      where: { email: createEmployeeDto.email },
+    });
     if (existingUser) {
       throw new ConflictException('Email is already registered');
     }
@@ -71,7 +83,9 @@ export class AuthService {
     return result;
   }
 
-  async login(loginDto: LoginDto): Promise<{ user: Omit<User, 'password'>; token: string }> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<{ user: Omit<User, 'password'>; token: string }> {
     const user = await this.userRepository.findOne({
       where: { email: loginDto.email },
       select: {
@@ -89,7 +103,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -108,10 +125,16 @@ export class AuthService {
     return result;
   }
 
-  async updateUserDetails(userId: string, updateUserDto: UpdateUserDto, requesterId: string): Promise<Omit<User, 'password'>> {
+  async updateUserDetails(
+    userId: string,
+    updateUserDto: UpdateUserDto,
+    requesterId: string,
+  ): Promise<Omit<User, 'password'>> {
     // Verify identity: only the user themselves or an admin can update the profile
     if (requesterId !== userId) {
-      const requester = await this.userRepository.findOne({ where: { userId: requesterId } });
+      const requester = await this.userRepository.findOne({
+        where: { userId: requesterId },
+      });
       if (!requester || requester.role !== 'admin') {
         throw new ForbiddenException('You can only update your own profile');
       }
@@ -122,9 +145,15 @@ export class AuthService {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
     // If a new profile picture is being set, delete the old one from disk
-    if (updateUserDto.profilePictureUrl && user.profilePictureUrl && updateUserDto.profilePictureUrl !== user.profilePictureUrl) {
+    if (
+      updateUserDto.profilePictureUrl &&
+      user.profilePictureUrl &&
+      updateUserDto.profilePictureUrl !== user.profilePictureUrl
+    ) {
       const oldPath = join(process.cwd(), user.profilePictureUrl);
-      console.log(`[DP DELETE] Old URL: "${user.profilePictureUrl}" | Built path: "${oldPath}" | Exists: ${fs.existsSync(oldPath)}`);
+      console.log(
+        `[DP DELETE] Old URL: "${user.profilePictureUrl}" | Built path: "${oldPath}" | Exists: ${fs.existsSync(oldPath)}`,
+      );
       try {
         if (fs.existsSync(oldPath)) {
           fs.unlinkSync(oldPath);
@@ -134,11 +163,16 @@ export class AuthService {
           console.log(`[DP DELETE] File not found at: ${oldPath}`);
         }
       } catch (err) {
-        this.logger.error(`Failed to delete old profile picture: ${oldPath}`, err);
+        this.logger.error(
+          `Failed to delete old profile picture: ${oldPath}`,
+          err,
+        );
         console.error(`[DP DELETE] ERROR:`, err);
       }
     } else {
-      console.log(`[DP DELETE] Skipped. newUrl="${updateUserDto.profilePictureUrl}" oldUrl="${user.profilePictureUrl}"`);
+      console.log(
+        `[DP DELETE] Skipped. newUrl="${updateUserDto.profilePictureUrl}" oldUrl="${user.profilePictureUrl}"`,
+      );
     }
 
     Object.assign(user, updateUserDto);
@@ -147,16 +181,26 @@ export class AuthService {
     return result;
   }
 
-  async updateUserRole(userId: string, role: string, adminUserId: string): Promise<Omit<User, 'password'>> {
-    const adminUser = await this.userRepository.findOne({ where: { userId: adminUserId } });
+  async updateUserRole(
+    userId: string,
+    role: string,
+    adminUserId: string,
+  ): Promise<Omit<User, 'password'>> {
+    const adminUser = await this.userRepository.findOne({
+      where: { userId: adminUserId },
+    });
     if (!adminUser) {
-      throw new NotFoundException(`Admin user with ID ${adminUserId} not found`);
+      throw new NotFoundException(
+        `Admin user with ID ${adminUserId} not found`,
+      );
     }
     if (adminUser.role !== 'admin') {
       throw new ForbiddenException('Only admin users can modify user roles');
     }
     if (role !== 'user' && role !== 'employee' && role !== 'admin') {
-      throw new BadRequestException('Invalid role name. Must be user, employee, or admin');
+      throw new BadRequestException(
+        'Invalid role name. Must be user, employee, or admin',
+      );
     }
 
     const user = await this.userRepository.findOne({ where: { userId } });
@@ -178,15 +222,22 @@ export class AuthService {
         { userId: ILike(`%${query}%`) },
       ],
     });
-    return users.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+    return users.map(
+      ({ password, ...userWithoutPassword }) => userWithoutPassword,
+    );
   }
 
   async getAllUsers(): Promise<Omit<User, 'password'>[]> {
     const users = await this.userRepository.find();
-    return users.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+    return users.map(
+      ({ password, ...userWithoutPassword }) => userWithoutPassword,
+    );
   }
 
-  async getUsersPaginated(page: number = 1, limit: number = 10): Promise<{ data: Omit<User, 'password'>[]; meta: any }> {
+  async getUsersPaginated(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: Omit<User, 'password'>[]; meta: any }> {
     const skippedItems = (page - 1) * limit;
 
     const [users, total] = await Promise.all([
@@ -200,7 +251,9 @@ export class AuthService {
       this.userRepository.count(),
     ]);
 
-    const data = users.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+    const data = users.map(
+      ({ password, ...userWithoutPassword }) => userWithoutPassword,
+    );
     const totalPages = Math.ceil(total / limit);
 
     return {

@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
@@ -22,7 +27,9 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     if (!token) {
-      throw new UnauthorizedException('Authentication token is missing. Please log in.');
+      throw new UnauthorizedException(
+        'Authentication token is missing. Please log in.',
+      );
     }
 
     try {
@@ -33,7 +40,9 @@ export class JwtAuthGuard implements CanActivate {
       request.user = payload;
       return true;
     } catch (err) {
-      throw new UnauthorizedException('Authentication token is invalid or expired. Please log in again.');
+      throw new UnauthorizedException(
+        'Authentication token is invalid or expired. Please log in again.',
+      );
     }
   }
 }

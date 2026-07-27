@@ -5,14 +5,14 @@ dotenv.config();
 const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 async function run() {
   try {
     await AppDataSource.initialize();
     console.log('Connected!');
-    
+
     // Check schema
     const q1 = `
       SELECT category.id AS "categoryId", category.name AS "categoryName", 
@@ -27,7 +27,6 @@ async function run() {
       LIMIT 6 OFFSET 0
     `;
     console.log(await AppDataSource.query(q1));
-
   } catch (e) {
     console.error(e.message);
   } finally {

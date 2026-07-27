@@ -8,33 +8,32 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
-import { Test } from './test.entity';
-import { SubmissionAnswer } from './submission-answer.entity';
+import { ExamGroup } from './exam-group.entity';
+import { ExamGroupAnswer } from './exam-group-answer.entity';
 
-@Entity('test_submissions')
-export class TestSubmission {
+@Entity('exam_group_submissions')
+export class ExamGroupSubmission {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Column({ default: true })
-  isDraft: boolean;
 
   @Column({ type: 'float', default: 0 })
   marksObtained: number;
 
-  @Column({ default: 'Pending Evaluation' })
-  status: string; // 'Pending Evaluation' | 'Evaluated'
+  @Column({ default: 'Evaluated' })
+  status: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   user: User;
 
-  @ManyToOne(() => Test, (test) => test.submissions, { onDelete: 'CASCADE' })
-  test: Test;
+  @ManyToOne(() => ExamGroup, (examGroup) => examGroup.submissions, {
+    onDelete: 'CASCADE',
+  })
+  examGroup: ExamGroup;
 
-  @OneToMany(() => SubmissionAnswer, (answer) => answer.submission, {
+  @OneToMany(() => ExamGroupAnswer, (answer) => answer.submission, {
     cascade: true,
   })
-  answers: SubmissionAnswer[];
+  answers: ExamGroupAnswer[];
 
   @Column({ type: 'timestamp', nullable: true })
   submittedAt: Date;

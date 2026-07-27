@@ -9,24 +9,27 @@ import * as fs from 'fs';
 import { join } from 'path';
 
 // Tell all Google Cloud SDKs where to find your credentials
-process.env.GOOGLE_APPLICATION_CREDENTIALS = join(process.cwd(), 'google-credentials.json');
+process.env.GOOGLE_APPLICATION_CREDENTIALS = join(
+  process.cwd(),
+  'google-credentials.json',
+);
 
 import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  
+
   // Ensure uploads directories exist
   const uploadDir = join(process.cwd(), 'uploads');
   const thumbnailsDir = join(uploadDir, 'thumbnails');
   const usersDpDir = join(uploadDir, 'users_dp');
-  
-  [uploadDir, thumbnailsDir, usersDpDir].forEach(dir => {
+
+  [uploadDir, thumbnailsDir, usersDpDir].forEach((dir) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
   });
-  
+
   app.use(cookieParser());
   const allowedOrigins = [
     process.env.FRONTEND_URL,
@@ -43,7 +46,6 @@ async function bootstrap() {
     credentials: true,
   });
 
-
   // Enable global validation pipe for DTO validation
   app.useGlobalPipes(
     new ValidationPipe({
@@ -54,12 +56,12 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   const server = await app.listen(port, '0.0.0.0');
-  
+
   // Fix for Axios Network Error (ECONNRESET) on Chrome/Node keep-alive race condition
   // Chrome uses a 60s keep-alive. Setting Node to 61s prevents Node from closing the connection first.
   server.keepAliveTimeout = 61000;
   server.headersTimeout = 65000;
-  
+
   console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();

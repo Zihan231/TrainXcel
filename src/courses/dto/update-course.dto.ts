@@ -1,4 +1,10 @@
-import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class UpdateCourseDto {
   @IsString()
@@ -11,7 +17,9 @@ export class UpdateCourseDto {
 
   @IsString()
   @IsOptional()
-  @IsIn(['active', 'inactive', 'draft'], { message: 'Status must be active, inactive, or draft' })
+  @IsIn(['active', 'inactive', 'draft'], {
+    message: 'Status must be active, inactive, or draft',
+  })
   status?: string;
 
   @IsString()
