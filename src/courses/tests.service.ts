@@ -185,8 +185,11 @@ export class TestsService {
       order: { createdAt: 'DESC' },
     });
     if (submission) {
+      // Filter to only include answers where the student actually provided an answer
+      // This ensures CQ and Video answers are visible in review even if unevaluated,
+      // while still excluding empty draft answers
       submission.answers = submission.answers.filter(
-        (a) => a.evaluatedBy !== null && a.evaluatedBy !== undefined,
+        (a) => a.providedAnswer !== null && a.providedAnswer !== undefined && a.providedAnswer !== '',
       );
     }
     return submission;
@@ -198,8 +201,11 @@ export class TestsService {
       relations: { user: true, test: true, answers: { question: true } },
     });
     if (submission) {
+      // Filter to only include answers where the student actually provided an answer
+      // This ensures CQ and Video answers are visible in review even if unevaluated,
+      // while still excluding empty draft answers
       submission.answers = submission.answers.filter(
-        (a) => a.evaluatedBy !== null && a.evaluatedBy !== undefined,
+        (a) => a.providedAnswer !== null && a.providedAnswer !== undefined && a.providedAnswer !== '',
       );
     }
     return submission;
