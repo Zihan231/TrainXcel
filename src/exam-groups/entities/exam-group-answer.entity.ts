@@ -13,6 +13,12 @@ export class ExamGroupAnswer {
   @Column({ type: 'float', default: 0 })
   marksAwarded: number;
 
+  @Column({ type: 'text', nullable: true })
+  evaluatorComment: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  evaluatedBy: string;
+
   @ManyToOne(() => ExamGroupSubmission, (submission) => submission.answers, {
     onDelete: 'CASCADE',
   })

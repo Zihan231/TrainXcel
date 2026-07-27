@@ -54,6 +54,13 @@ import { CloudStorageService } from './cloud-storage.service';
     GeminiAnalysisService,
     CloudStorageService,
   ],
-  exports: [CoursesService, TestsService, NotificationsGateway],
+  exports: [
+    CoursesService,
+    TestsService,
+    NotificationsGateway,
+    GeminiAnalysisService,
+    CloudStorageService,
+    MediaProcessorService,
+  ],
 })
 export class CoursesModule {}

@@ -4,6 +4,7 @@ import {
   Post,
   Patch,
   Delete,
+  Put,
   Body,
   Param,
   Query,
@@ -23,6 +24,7 @@ import { AddQuestionsDto } from './dto/add-questions.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { EnrollUserDto } from './dto/enroll-user.dto';
 import { SubmitExamDto } from './dto/submit-exam.dto';
+import { EvaluateExamGroupDto } from './dto/evaluate-exam-group.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -202,6 +204,23 @@ export class ExamGroupsController {
     @Req() req: any,
   ) {
     return this.examGroupsService.submitExam(+id, req.user.userId, submitDto);
+  }
+
+  @Put(':id/evaluations')
+  @UseGuards(JwtAuthGuard)
+  async evaluateSubmission(
+    @Param('id') id: string,
+    @Body() evaluateDto: EvaluateExamGroupDto,
+    @Req() req: any,
+  ) {
+    if (req.user.role !== 'admin' && req.user.role !== 'employee') {
+      throw new ForbiddenException('Only admins or employees can evaluate exams');
+    }
+    return this.examGroupsService.evaluateSubmission(
+      +id,
+      req.user.userId,
+      evaluateDto,
+    );
   }
 
   @Get(':id/my-submissions')

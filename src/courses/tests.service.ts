@@ -603,12 +603,20 @@ export class TestsService {
                 );
               }
 
+              // Check if there are other pending answers (e.g., CQ)
+              const pendingAnswersCount = await this.answerRepo.count({
+                where: {
+                  submission: { id: saved.id },
+                  evaluatedBy: IsNull(),
+                },
+              });
+
               // Update the overall submission total marks and status using update to prevent TypeORM cascade overwriting
               const newMarksObtained =
                 saved.marksObtained + evaluationResult.overallScore;
               await this.submissionRepo.update(saved.id, {
                 marksObtained: newMarksObtained,
-                status: 'Evaluated',
+                status: pendingAnswersCount > 0 ? 'Pending Evaluation' : 'Evaluated',
               });
 
               console.log(
@@ -760,10 +768,18 @@ export class TestsService {
             `Awarded marks (${ev.marksAwarded}) cannot exceed maximum allowed marks (${ans.question.marks}) for question "${ans.question.questionText}".`,
           );
         }
+        
+        const oldMarks = ans.marksAwarded || 0;
         ans.marksAwarded = ev.marksAwarded;
         ans.evaluatorComment = ev.evaluatorComment || '';
-        ans.evaluatedBy = 'Human';
-        newMarksAdded += ev.marksAwarded;
+        
+        // Preserve AI evaluation flag if it was already reviewed by AI
+        const isPreviouslyAi = ans.evaluatedBy && ans.evaluatedBy.toUpperCase() === 'AI';
+        if (!(ans.question.type === 'Video' && isPreviouslyAi)) {
+          ans.evaluatedBy = 'Human';
+        }
+        
+        newMarksAdded += (ev.marksAwarded - oldMarks);
       }
     }
 
@@ -972,7 +988,42 @@ export class TestsService {
       remaining = totalEnrolled - uniqueSubmittedUserIds.size;
     }
 
-    return { submissions, remaining };
+    return {
+      submissions,
+      remaining: Math.max(0, remaining),
+    };
+  }
+
+  async getTestSubmissions(testId: number) {
+    const test = await this.testRepo.findOne({
+      where: { id: testId },
+      relations: { course: true },
+    });
+    if (!test) return { submissions: [], remaining: 0 };
+
+    const submissions = await this.submissionRepo.find({
+      where: { test: { id: testId }, isDraft: false, status: 'Evaluated' },
+      relations: { user: true, test: true },
+      order: { submittedAt: 'DESC' },
+    });
+
+    let remaining = 0;
+    if (test.course?.id) {
+      const totalEnrolled = await this.enrollmentRepo.count({
+        where: { course: { id: test.course.id } },
+      });
+      const uniqueSubmittedUserIds = new Set(
+        submissions
+          .map((s) => s.user?.id)
+          .filter((id): id is number => id !== undefined && id !== null),
+      );
+      remaining = totalEnrolled - uniqueSubmittedUserIds.size;
+    }
+
+    return {
+      submissions,
+      remaining: Math.max(0, remaining),
+    };
   }
 
   async updateTest(testId: number, dto: UpdateTestDto, role: string) {

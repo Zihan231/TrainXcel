@@ -3,6 +3,8 @@ import {
   IsNumber,
   IsString,
   ValidateNested,
+  IsOptional,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -10,17 +12,39 @@ class QuestionDto {
   @IsString()
   @IsNotEmpty()
   questionText: string;
+  
+  @IsString()
+  @IsOptional()
+  type?: string;
 
+  @IsArray()
   @IsString({ each: true })
-  @IsNotEmpty()
-  options: string[];
+  @IsOptional()
+  options?: string[];
 
+  @IsArray()
   @IsString({ each: true })
-  @IsNotEmpty()
-  correctAnswers: string[];
+  @IsOptional()
+  correctAnswers?: string[];
 
   @IsNumber()
   marks: number;
+
+  @IsNumber()
+  @IsOptional()
+  postureMarks?: number;
+
+  @IsNumber()
+  @IsOptional()
+  voiceMarks?: number;
+
+  @IsNumber()
+  @IsOptional()
+  accuracyMarks?: number;
+
+  @IsString()
+  @IsOptional()
+  evaluationType?: string;
 }
 
 export class AddQuestionsDto {

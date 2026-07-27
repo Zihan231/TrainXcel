@@ -11,6 +11,8 @@ import { User } from '../auth/entities/user.entity';
 import { ExamGroupsService } from './exam-groups.service';
 import { ExamGroupsController } from './exam-groups.controller';
 
+import { CoursesModule } from '../courses/courses.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -23,6 +25,7 @@ import { ExamGroupsController } from './exam-groups.controller';
     ]),
     AuthModule,
     ConfigModule,
+    CoursesModule,
   ],
   controllers: [ExamGroupsController],
   providers: [ExamGroupsService],

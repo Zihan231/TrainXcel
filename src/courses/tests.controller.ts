@@ -165,6 +165,20 @@ export class TestsController {
     return this.testsService.getLessonSubmissions(+lessonId);
   }
 
+  @Get('test/:testId/submissions')
+  async getTestSubmissions(
+    @Param('testId') testId: string,
+    @Req() req: any,
+  ) {
+    const { role } = req.user;
+    if (role === 'user') {
+      throw new ForbiddenException(
+        'Only admin and employee users can view all student marks',
+      );
+    }
+    return this.testsService.getTestSubmissions(+testId);
+  }
+
   @Get('submissions/:id')
   async getSubmissionById(@Param('id') id: string, @Req() req: any) {
     const { role } = req.user;
