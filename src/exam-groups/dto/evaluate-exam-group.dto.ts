@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsNumber, IsString, ValidateNested, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  ValidateNested,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ExamGroupEvaluationItemDto {

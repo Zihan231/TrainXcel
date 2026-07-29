@@ -57,6 +57,9 @@ export class Test {
   @Column({ default: 'published' })
   status: string; // 'published' | 'scheduled' | 'active' | 'completed' | 'cancelled'
 
+  @Column({ nullable: true })
+  videoTestScriptId: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

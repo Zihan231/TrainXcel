@@ -290,15 +290,20 @@ export class ExamGroupsService {
       throw new NotFoundException('Question not found');
     }
 
-    if (dto.questionText !== undefined) question.questionText = dto.questionText;
+    if (dto.questionText !== undefined)
+      question.questionText = dto.questionText;
     if (dto.type !== undefined) question.type = dto.type;
     if (dto.options !== undefined) question.options = dto.options;
-    if (dto.correctAnswers !== undefined) question.correctAnswers = dto.correctAnswers;
+    if (dto.correctAnswers !== undefined)
+      question.correctAnswers = dto.correctAnswers;
     if (dto.marks !== undefined) question.marks = dto.marks;
-    if (dto.postureMarks !== undefined) question.postureMarks = dto.postureMarks;
+    if (dto.postureMarks !== undefined)
+      question.postureMarks = dto.postureMarks;
     if (dto.voiceMarks !== undefined) question.voiceMarks = dto.voiceMarks;
-    if (dto.accuracyMarks !== undefined) question.accuracyMarks = dto.accuracyMarks;
-    if (dto.evaluationType !== undefined) question.evaluationType = dto.evaluationType;
+    if (dto.accuracyMarks !== undefined)
+      question.accuracyMarks = dto.accuracyMarks;
+    if (dto.evaluationType !== undefined)
+      question.evaluationType = dto.evaluationType;
 
     return this.questionRepo.save(question);
   }
@@ -483,7 +488,11 @@ export class ExamGroupsService {
         } else {
           pendingCount++;
           if (question.type === 'Video' && question.evaluationType === 'AI') {
-            aiVideoAnswers.push({ questionId: question.id, providedArr, question });
+            aiVideoAnswers.push({
+              questionId: question.id,
+              providedArr,
+              question,
+            });
           }
         }
 
@@ -525,24 +534,30 @@ export class ExamGroupsService {
       this.mediaProcessorService
         .processVideoAssets(filename, savedSubmission.id)
         .then(async (assets) => {
-          console.log(`[ExamGroup] Media extracted for sub-${savedSubmission.id}`);
+          console.log(
+            `[ExamGroup] Media extracted for sub-${savedSubmission.id}`,
+          );
           try {
             const audioDest = `evaluations/exg_submission_${savedSubmission.id}/audio/extracted_audio.mp3`;
             const [audioGcsUri, snapshotGcsUris] = await Promise.all([
               this.cloudStorageService.uploadFile(assets.audioPath, audioDest),
-              this.cloudStorageService.uploadSnapshots(assets.snapshotDir, savedSubmission.id),
+              this.cloudStorageService.uploadSnapshots(
+                assets.snapshotDir,
+                savedSubmission.id,
+              ),
             ]);
 
-            const evaluationResult = await this.geminiAnalysisService.evaluateCandidate(
-              audioGcsUri,
-              snapshotGcsUris,
-              '',
-              'text/plain',
-              aiAnswer.question.postureMarks || 0,
-              aiAnswer.question.voiceMarks || 0,
-              aiAnswer.question.accuracyMarks || 0,
-              aiAnswer.question.questionText
-            );
+            const evaluationResult =
+              await this.geminiAnalysisService.evaluateCandidate(
+                audioGcsUri,
+                snapshotGcsUris,
+                '',
+                'text/plain',
+                aiAnswer.question.postureMarks || 0,
+                aiAnswer.question.voiceMarks || 0,
+                aiAnswer.question.accuracyMarks || 0,
+                aiAnswer.question.questionText,
+              );
 
             const savedSubAnswer = await this.answerRepo.findOne({
               where: {
@@ -563,7 +578,8 @@ export class ExamGroupsService {
                 where: { id: savedSubmission.id },
               });
               if (subToUpdate) {
-                const newMarks = subToUpdate.marksObtained + evaluationResult.overallScore;
+                const newMarks =
+                  subToUpdate.marksObtained + evaluationResult.overallScore;
                 await this.submissionRepo.update(savedSubmission.id, {
                   marksObtained: newMarks,
                 });
@@ -637,7 +653,7 @@ export class ExamGroupsService {
     }
 
     let marksAdded = 0;
-    
+
     for (const evalItem of dto.evaluations) {
       const answer = await this.answerRepo.findOne({
         where: { id: evalItem.answerId, submission: { id: submission.id } },
@@ -650,7 +666,8 @@ export class ExamGroupsService {
 
         await this.answerRepo.update(answer.id, {
           marksAwarded: evalItem.marksAwarded,
-          evaluatorComment: evalItem.evaluatorComment || answer.evaluatorComment,
+          evaluatorComment:
+            evalItem.evaluatorComment || answer.evaluatorComment,
           evaluatedBy: 'Human',
         });
       }
@@ -658,7 +675,7 @@ export class ExamGroupsService {
 
     // Update total marks and status
     const newTotal = Math.max(0, submission.marksObtained + marksAdded);
-    
+
     // Check if fully evaluated (all non-MCQ answers have been evaluated)
     // For simplicity, we just mark as Evaluated if admin submits evaluation
     await this.submissionRepo.update(submission.id, {

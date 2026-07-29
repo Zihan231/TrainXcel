@@ -214,7 +214,9 @@ export class ExamGroupsController {
     @Req() req: any,
   ) {
     if (req.user.role !== 'admin' && req.user.role !== 'employee') {
-      throw new ForbiddenException('Only admins or employees can evaluate exams');
+      throw new ForbiddenException(
+        'Only admins or employees can evaluate exams',
+      );
     }
     return this.examGroupsService.evaluateSubmission(
       +id,
@@ -279,10 +281,7 @@ export class ExamGroupsController {
       },
     }),
   )
-  async uploadExamThumbnail(
-    @UploadedFile() file: any,
-    @Req() req: any,
-  ) {
+  async uploadExamThumbnail(@UploadedFile() file: any, @Req() req: any) {
     const { role } = req.user;
     if (role !== 'admin' && role !== 'employee') {
       throw new ForbiddenException(

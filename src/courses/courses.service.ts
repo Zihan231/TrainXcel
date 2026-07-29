@@ -76,6 +76,7 @@ export class CoursesService {
       withDeleted: true,
       relations: {
         tests: {
+          questions: true,
           submissions: {
             answers: true,
           },
@@ -87,6 +88,9 @@ export class CoursesService {
 
     for (const test of lesson.tests || []) {
       if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+      for (const q of test.questions || []) {
+        if (q.referenceScript) this.deletePhysicalFile(q.referenceScript);
+      }
       for (const submission of test.submissions || []) {
         for (const answer of submission.answers || []) {
           if (
@@ -107,12 +111,14 @@ export class CoursesService {
       relations: {
         lessons: {
           tests: {
+            questions: true,
             submissions: {
               answers: true,
             },
           },
         },
         tests: {
+          questions: true,
           submissions: {
             answers: true,
           },
@@ -129,6 +135,9 @@ export class CoursesService {
       if (lesson.materialLink) this.deletePhysicalFile(lesson.materialLink);
       for (const test of lesson.tests || []) {
         if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+        for (const q of test.questions || []) {
+          if (q.referenceScript) this.deletePhysicalFile(q.referenceScript);
+        }
         for (const submission of test.submissions || []) {
           for (const answer of submission.answers || []) {
             if (
@@ -144,6 +153,9 @@ export class CoursesService {
 
     for (const test of course.tests || []) {
       if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+      for (const q of test.questions || []) {
+        if (q.referenceScript) this.deletePhysicalFile(q.referenceScript);
+      }
       for (const submission of test.submissions || []) {
         for (const answer of submission.answers || []) {
           if (

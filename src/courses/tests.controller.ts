@@ -166,10 +166,7 @@ export class TestsController {
   }
 
   @Get('test/:testId/submissions')
-  async getTestSubmissions(
-    @Param('testId') testId: string,
-    @Req() req: any,
-  ) {
+  async getTestSubmissions(@Param('testId') testId: string, @Req() req: any) {
     const { role } = req.user;
     if (role === 'user') {
       throw new ForbiddenException(

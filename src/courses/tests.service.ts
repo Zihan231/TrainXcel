@@ -3,12 +3,12 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In, MoreThanOrEqual } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
-import { OfficeParser } from 'officeparser';
 import { Test } from './entities/test.entity';
 import { Question } from './entities/question.entity';
 import { TestSubmission } from './entities/test-submission.entity';
@@ -27,9 +27,13 @@ import { MediaProcessorService } from './media-processor.service';
 // import { SpeechService } from './speech.service';
 import { CloudStorageService } from './cloud-storage.service';
 import { GeminiAnalysisService } from './gemini-analysis.service';
+import { VideoEvaluationService } from './video-evaluation/video-evaluation.service';
+import { CqEvaluationService } from './cq-evaluation/cq-evaluation.service';
 
 @Injectable()
 export class TestsService {
+  private readonly logger = new Logger(TestsService.name);
+
   constructor(
     @InjectRepository(Test) private testRepo: Repository<Test>,
     @InjectRepository(Question) private questionRepo: Repository<Question>,
@@ -49,6 +53,8 @@ export class TestsService {
     // private speechService: SpeechService,
     private readonly cloudStorageService: CloudStorageService,
     private readonly geminiAnalysisService: GeminiAnalysisService,
+    private readonly videoEvaluationService: VideoEvaluationService,
+    private readonly cqEvaluationService: CqEvaluationService,
   ) {}
 
   async createTest(createDto: CreateTestDto, userId: string, role: string) {
@@ -107,6 +113,7 @@ export class TestsService {
       if (q.accuracyMarks !== undefined)
         question.accuracyMarks = q.accuracyMarks;
       question.evaluationType = q.evaluationType || 'AI';
+      if (q.referenceScript) question.referenceScript = q.referenceScript;
       if (q.type === 'MCQ') {
         question.options = q.options || [];
         question.correctAnswers = q.correctAnswers || [];
@@ -189,7 +196,10 @@ export class TestsService {
       // This ensures CQ and Video answers are visible in review even if unevaluated,
       // while still excluding empty draft answers
       submission.answers = submission.answers.filter(
-        (a) => a.providedAnswer !== null && a.providedAnswer !== undefined && a.providedAnswer !== '',
+        (a) =>
+          a.providedAnswer !== null &&
+          a.providedAnswer !== undefined &&
+          a.providedAnswer !== '',
       );
     }
     return submission;
@@ -205,7 +215,10 @@ export class TestsService {
       // This ensures CQ and Video answers are visible in review even if unevaluated,
       // while still excluding empty draft answers
       submission.answers = submission.answers.filter(
-        (a) => a.providedAnswer !== null && a.providedAnswer !== undefined && a.providedAnswer !== '',
+        (a) =>
+          a.providedAnswer !== null &&
+          a.providedAnswer !== undefined &&
+          a.providedAnswer !== '',
       );
     }
     return submission;
@@ -352,8 +365,9 @@ export class TestsService {
     }
 
     submission.answers = [];
+    const cqAnswerIndices: number[] = [];
 
-    for (const ans of submitDto.answers) {
+    for (const [index, ans] of submitDto.answers.entries()) {
       const question = test.questions.find((q) => q.id === ans.questionId);
       if (!question) continue;
 
@@ -380,7 +394,11 @@ export class TestsService {
           } else {
             subAnswer.marksAwarded = 0;
           }
-        } else if (question.type === 'CQ' || question.type === 'Video') {
+        } else if (question.type === 'CQ') {
+          needsManualEvaluation = true;
+          subAnswer.marksAwarded = 0; // pending
+          cqAnswerIndices.push(index);
+        } else if (question.type === 'Video') {
           needsManualEvaluation = true;
           subAnswer.marksAwarded = 0; // pending
         }
@@ -428,8 +446,7 @@ export class TestsService {
         }
       }
     }
-
-    // --- ASYNCHRONOUS AI EVALUATION WORKFLOW ---
+    // --- INLINE AI EVALUATION ---
     if (!submission.isDraft && needsManualEvaluation) {
       const videoAnswer = submitDto.answers.find((ans) => {
         const q = test.questions.find((quest) => quest.id === ans.questionId);
@@ -437,284 +454,27 @@ export class TestsService {
       });
 
       if (videoAnswer && videoAnswer.providedAnswer) {
-        let filename = videoAnswer.providedAnswer;
-        if (filename.includes('/')) {
-          filename = filename.split('/').pop();
-        }
-
-        // Grab the actual question object to get marks and the script URI
         const videoQuestion = test.questions.find(
           (quest) => quest.id === videoAnswer.questionId,
         );
-        if (!videoQuestion) return;
-
-        if (videoQuestion.evaluationType === 'Manual') {
-          console.log(
-            `[TestsService] Video question id=${videoQuestion.id} is configured for Manual evaluation. Skipping AI Gemini flow.`,
-          );
-          return;
+        if (videoQuestion && videoQuestion.evaluationType !== 'Manual') {
+          await this.videoEvaluationService
+            .evaluateVideoSubmission(saved.id)
+            .catch((err) =>
+              this.logger.error(`Video evaluation failed: ${err.message}`),
+            );
         }
+      }
 
-        this.mediaProcessorService
-          .processVideoAssets(filename, saved.id)
-          .then(async (assets) => {
-            console.log(
-              `[Media Processor] Assets successfully extracted for submission-${saved.id}`,
+      for (const idx of cqAnswerIndices) {
+        const cqAnswer = saved.answers[idx];
+        if (cqAnswer && cqAnswer.id) {
+          await this.cqEvaluationService
+            .evaluateCqAnswer(cqAnswer.id)
+            .catch((err) =>
+              this.logger.error(`CQ evaluation failed for answer ${cqAnswer.id}: ${err.message}`),
             );
-
-            try {
-              /* 
-            // --- KEPT FOR REFERENCE: LEGACY SPEECH-TO-TEXT ---
-            // 1. Transcribe the Audio
-            const transcript = await this.speechService.transcribeAudio(assets.audioPath);
-            console.log(`[Speech API] Final Transcript:\n`, transcript);
-            */
-
-              // 1. Upload extracted assets to Google Cloud Storage (Parallel)
-              console.log(
-                `[Cloud Storage] Uploading assets to GCS for submission-${saved.id}...`,
-              );
-              const audioDestination = `evaluations/submission_${saved.id}/audio/extracted_audio.mp3`;
-
-              const [audioGcsUri, snapshotGcsUris] = await Promise.all([
-                this.cloudStorageService.uploadFile(
-                  assets.audioPath,
-                  audioDestination,
-                ),
-                this.cloudStorageService.uploadSnapshots(
-                  assets.snapshotDir,
-                  saved.id,
-                ),
-              ]);
-
-              console.log(
-                `[Cloud Storage] Upload complete! Audio: ${audioGcsUri}, Snapshots: ${snapshotGcsUris.length}`,
-              );
-
-              // 2. Setup Script details
-              let scriptGcsUri = '';
-              let scriptMimeType = '';
-              let scriptText: string | undefined;
-
-              if (test.referenceScript) {
-                const cleanLink = test.referenceScript.replace(/^[/\\]+/, '');
-                const localPath = path.resolve('.', cleanLink);
-                if (fs.existsSync(localPath)) {
-                  const ext = path.extname(localPath).toLowerCase();
-                  let shouldUpload = true;
-
-                  if (ext === '.pdf') {
-                    scriptMimeType = 'application/pdf';
-                  } else if (ext === '.docx') {
-                    scriptMimeType =
-                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                    try {
-                      const ast = await OfficeParser.parseOffice(localPath);
-                      scriptText = ast.toText();
-                      shouldUpload = false;
-                    } catch (e) {
-                      console.error('[officeParser] Failed to parse docx:', e);
-                    }
-                  } else if (ext === '.pptx' || ext === '.ppt') {
-                    scriptMimeType =
-                      'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-                    try {
-                      const ast = await OfficeParser.parseOffice(localPath);
-                      scriptText = ast.toText();
-                      shouldUpload = false;
-                    } catch (e) {
-                      console.error('[officeParser] Failed to parse pptx:', e);
-                    }
-                  }
-
-                  if (shouldUpload) {
-                    const scriptDestination = `evaluations/${test.id}/script/${path.basename(localPath)}`;
-                    try {
-                      console.log(
-                        `[Cloud Storage] Uploading reference script: ${localPath}`,
-                      );
-                      scriptGcsUri = await this.cloudStorageService.uploadFile(
-                        localPath,
-                        scriptDestination,
-                      );
-                    } catch (scriptUploadError) {
-                      console.error(
-                        `[Cloud Storage] Failed to upload reference script, using fallback.`,
-                        scriptUploadError,
-                      );
-                    }
-                  } else {
-                    console.log(
-                      `[Cloud Storage] Extracted text from script locally, skipping GCS upload.`,
-                    );
-                  }
-                } else {
-                  console.log(
-                    `[Cloud Storage] Reference script path not found on disk, treating as plain text instruction.`,
-                  );
-                  scriptText = test.referenceScript;
-                }
-              } else {
-                console.log(
-                  `[Cloud Storage] No reference script provided, setting fallback prompt text.`,
-                );
-                scriptText =
-                  "No reference script was provided for this test. Evaluate the candidate's general communication structure and flow.";
-              }
-
-              // 3. Trigger Gemini for Video Evaluation
-              console.log(`[Gemini AI] Starting evaluation...`);
-              const pMarks =
-                videoQuestion.postureMarks ?? videoQuestion.marks / 3;
-              const vMarks =
-                videoQuestion.voiceMarks ?? videoQuestion.marks / 3;
-              const aMarks =
-                videoQuestion.accuracyMarks ?? videoQuestion.marks / 3;
-
-              const evaluationResult =
-                await this.geminiAnalysisService.evaluateCandidate(
-                  audioGcsUri,
-                  snapshotGcsUris,
-                  scriptGcsUri,
-                  scriptMimeType,
-                  pMarks,
-                  vMarks,
-                  aMarks,
-                  scriptText,
-                );
-
-              console.log(`[Gemini AI] Evaluation complete:`, evaluationResult);
-
-              // 4. Update the database with the AI score
-              const savedSubAnswer = await this.answerRepo.findOne({
-                where: {
-                  submission: { id: saved.id },
-                  question: { id: videoQuestion.id },
-                },
-              });
-
-              if (savedSubAnswer) {
-                const commentString = JSON.stringify(evaluationResult);
-                console.log(
-                  `[Database] Updating Answer ID ${savedSubAnswer.id} with marks: ${evaluationResult.overallScore}, comment length: ${commentString.length}`,
-                );
-                await this.answerRepo.update(savedSubAnswer.id, {
-                  marksAwarded: evaluationResult.overallScore,
-                  evaluatorComment: commentString,
-                  evaluatedBy: 'AI',
-                });
-              } else {
-                console.error(
-                  `[Database] Could not find SubmissionAnswer for submission: ${saved.id}, question: ${videoQuestion.id}`,
-                );
-              }
-
-              // Check if there are other pending answers (e.g., CQ)
-              const pendingAnswersCount = await this.answerRepo.count({
-                where: {
-                  submission: { id: saved.id },
-                  evaluatedBy: IsNull(),
-                },
-              });
-
-              // Update the overall submission total marks and status using update to prevent TypeORM cascade overwriting
-              const newMarksObtained =
-                saved.marksObtained + evaluationResult.overallScore;
-              await this.submissionRepo.update(saved.id, {
-                marksObtained: newMarksObtained,
-                status: pendingAnswersCount > 0 ? 'Pending Evaluation' : 'Evaluated',
-              });
-
-              console.log(
-                `[Database] Submission ${saved.id} successfully updated with AI score: ${evaluationResult.overallScore}`,
-              );
-
-              // Send notification to the student
-              try {
-                const fullSubmission = await this.submissionRepo.findOne({
-                  where: { id: saved.id },
-                  relations: { user: true, test: true },
-                });
-                if (fullSubmission && fullSubmission.user) {
-                  const notification = new Notification();
-                  notification.message = `Your test "${fullSubmission.test.title}" has been evaluated by AI.`;
-                  notification.user = fullSubmission.user;
-                  notification.actionLink = `/dashboard?tab=my-learning`;
-                  const savedNotif =
-                    await this.notificationRepo.save(notification);
-
-                  this.notificationsGateway.sendNotificationToUser(
-                    fullSubmission.user.userId,
-                    {
-                      id: savedNotif.id,
-                      message: savedNotif.message,
-                      actionLink: savedNotif.actionLink,
-                      createdAt: savedNotif.createdAt,
-                      isRead: false,
-                    },
-                  );
-                }
-              } catch (notifErr) {
-                console.error(
-                  `[Notification] Failed to notify user for AI evaluation:`,
-                  notifErr,
-                );
-              }
-
-              // Delete the temporary local files inside VdoEva
-              try {
-                const outputDir = path.dirname(assets.snapshotDir);
-                if (fs.existsSync(outputDir)) {
-                  fs.rmSync(outputDir, {
-                    recursive: true,
-                    force: true,
-                    maxRetries: 10,
-                    retryDelay: 5000,
-                  });
-                  console.log(
-                    `[Media Processor] Cleaned up temporary extraction folder: ${outputDir}`,
-                  );
-                }
-              } catch (err) {
-                console.error(
-                  `[Media Processor] Failed to clean up temporary extraction folder:`,
-                  err,
-                );
-              }
-            } catch (workflowError) {
-              console.error(
-                `[Evaluation Workflow] Failed during AI or Cloud processing:`,
-                workflowError,
-              );
-
-              // Cleanup on error too!
-              try {
-                const outputDir = path.dirname(assets.snapshotDir);
-                if (fs.existsSync(outputDir)) {
-                  fs.rmSync(outputDir, {
-                    recursive: true,
-                    force: true,
-                    maxRetries: 10,
-                    retryDelay: 5000,
-                  });
-                  console.log(
-                    `[Media Processor] Cleaned up temporary extraction folder after error: ${outputDir}`,
-                  );
-                }
-              } catch (err) {
-                console.error(
-                  `[Media Processor] Failed to clean up temporary extraction folder:`,
-                  err,
-                );
-              }
-            }
-          })
-          .catch((err) => {
-            console.error(
-              `[Media Processor] Failed to extract media for test-${test.id}:`,
-              err,
-            );
-          });
+        }
       }
     }
 
@@ -774,18 +534,19 @@ export class TestsService {
             `Awarded marks (${ev.marksAwarded}) cannot exceed maximum allowed marks (${ans.question.marks}) for question "${ans.question.questionText}".`,
           );
         }
-        
+
         const oldMarks = ans.marksAwarded || 0;
         ans.marksAwarded = ev.marksAwarded;
         ans.evaluatorComment = ev.evaluatorComment || '';
-        
+
         // Preserve AI evaluation flag if it was already reviewed by AI
-        const isPreviouslyAi = ans.evaluatedBy && ans.evaluatedBy.toUpperCase() === 'AI';
+        const isPreviouslyAi =
+          ans.evaluatedBy && ans.evaluatedBy.toUpperCase() === 'AI';
         if (!(ans.question.type === 'Video' && isPreviouslyAi)) {
           ans.evaluatedBy = 'Human';
         }
-        
-        newMarksAdded += (ev.marksAwarded - oldMarks);
+
+        newMarksAdded += ev.marksAwarded - oldMarks;
       }
     }
 
@@ -933,12 +694,8 @@ export class TestsService {
     if (data.evaluationType !== undefined)
       question.evaluationType = data.evaluationType;
 
-    if (
-      data.referenceScript !== undefined &&
-      question.type === 'Video' &&
-      question.test
-    ) {
-      const oldScript = question.test.referenceScript;
+    if (data.referenceScript !== undefined) {
+      const oldScript = question.referenceScript;
 
       // If there was an old file path, and it is different from the new script, delete it!
       if (oldScript && oldScript !== data.referenceScript) {
@@ -956,8 +713,7 @@ export class TestsService {
         }
       }
 
-      question.test.referenceScript = data.referenceScript || undefined;
-      await this.testRepo.save(question.test);
+      question.referenceScript = data.referenceScript || undefined;
     }
 
     return this.questionRepo.save(question);
@@ -1070,10 +826,20 @@ export class TestsService {
   async deleteTest(
     testId: number,
   ): Promise<{ success: boolean; message: string }> {
-    const test = await this.testRepo.findOne({ where: { id: testId } });
+    const test = await this.testRepo.findOne({
+      where: { id: testId },
+      relations: { questions: true },
+    });
     if (!test) {
       throw new NotFoundException('Test not found');
     }
+
+    // Clean up reference script files
+    if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+    for (const q of test.questions || []) {
+      if (q.referenceScript) this.deletePhysicalFile(q.referenceScript);
+    }
+
     await this.testRepo.remove(test);
     return { success: true, message: 'Test successfully deleted' };
   }

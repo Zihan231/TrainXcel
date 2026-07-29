@@ -43,6 +43,10 @@ export class QuestionDto {
   @IsString()
   @IsOptional()
   evaluationType?: string;
+
+  @IsString()
+  @IsOptional()
+  referenceScript?: string;
 }
 
 export class CreateTestDto {

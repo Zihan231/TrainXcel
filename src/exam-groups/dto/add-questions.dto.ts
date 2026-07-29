@@ -12,7 +12,7 @@ class QuestionDto {
   @IsString()
   @IsNotEmpty()
   questionText: string;
-  
+
   @IsString()
   @IsOptional()
   type?: string;

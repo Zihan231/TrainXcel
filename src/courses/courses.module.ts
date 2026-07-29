@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
+import { AiTestingModule } from '../ai-testing/ai-testing.module';
 import { Course } from './entities/course.entity';
 import { Lesson } from './entities/lesson.entity';
 import { Category } from './entities/category.entity';
@@ -12,6 +13,7 @@ import { TestSubmission } from './entities/test-submission.entity';
 import { SubmissionAnswer } from './entities/submission-answer.entity';
 import { Notification } from './entities/notification.entity';
 import { User } from '../auth/entities/user.entity';
+import { AiTestGenerationRequest } from '../ai-testing/entities/ai-test-generation-request.entity';
 import { CoursesService } from './courses.service';
 import { CoursesController } from './courses.controller';
 import { TrashCleanupService } from './trash-cleanup.service';
@@ -19,12 +21,14 @@ import { TestsService } from './tests.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
 import { ExamSchedulerService } from './exam-scheduler.service';
+import { CqEvaluationService } from './cq-evaluation/cq-evaluation.service';
 
 import { MediaProcessorService } from './media-processor.service';
 // import { SpeechService } from './speech.service';
 import { TestsController } from './tests.controller';
 import { GeminiAnalysisService } from './gemini-analysis.service';
 import { CloudStorageService } from './cloud-storage.service';
+import { VideoEvaluationService } from './video-evaluation/video-evaluation.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -38,9 +42,11 @@ import { CloudStorageService } from './cloud-storage.service';
       TestSubmission,
       SubmissionAnswer,
       Notification,
+      AiTestGenerationRequest,
     ]),
     AuthModule,
     ConfigModule,
+    AiTestingModule,
   ],
   controllers: [CoursesController, NotificationsController, TestsController],
   providers: [
@@ -53,6 +59,8 @@ import { CloudStorageService } from './cloud-storage.service';
     MediaProcessorService,
     GeminiAnalysisService,
     CloudStorageService,
+    VideoEvaluationService,
+    CqEvaluationService,
   ],
   exports: [
     CoursesService,
@@ -61,6 +69,8 @@ import { CloudStorageService } from './cloud-storage.service';
     GeminiAnalysisService,
     CloudStorageService,
     MediaProcessorService,
+    VideoEvaluationService,
+    CqEvaluationService,
   ],
 })
 export class CoursesModule {}

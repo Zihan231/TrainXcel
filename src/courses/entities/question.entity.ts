@@ -43,6 +43,9 @@ export class Question {
   @Column({ default: 'AI' })
   evaluationType: string;
 
+  @Column({ type: 'text', nullable: true })
+  referenceScript?: string;
+
   @ManyToOne(() => Test, (test) => test.questions, { onDelete: 'CASCADE' })
   test: Test;
 
