@@ -75,6 +75,7 @@ export class AiTestingService {
       mcqCount: dto.mcqCount,
       cqCount: dto.cqCount,
       includeVideoTest: dto.includeVideoTest || false,
+      title: dto.title || undefined,
     };
 
     setImmediate(() => {
@@ -93,7 +94,8 @@ export class AiTestingService {
     sourceDocumentType: string;
     mcqCount: number;
     cqCount: number;
-    includeVideoTest: boolean;
+    includeVideoTest?: boolean;
+    title?: string;
   }) {
     this.logger.log(`processGenerationJob start requestId=${data.requestId} lessonId=${data.lessonId}`);
     const generationRequest = await this.requestRepo.findOne({
@@ -172,7 +174,7 @@ export class AiTestingService {
       }
 
       const test = this.testRepo.create({
-        title: `AI Generated Test - ${lesson.title}`,
+        title: data.title || `Test for - ${lesson.title}`,
         description: 'Auto-generated test from uploaded document',
         testType: 'Lesson',
         referenceScript: videoTestScript || referenceScript || undefined,

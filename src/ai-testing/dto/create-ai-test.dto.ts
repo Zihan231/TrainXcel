@@ -20,4 +20,8 @@ export class CreateAiTestDto {
   @IsString()
   @IsOptional()
   sourceDocumentType?: string;
+
+  @IsString()
+  @IsOptional()
+  title?: string;
 }
