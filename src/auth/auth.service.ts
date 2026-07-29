@@ -116,6 +116,34 @@ export class AuthService {
     return { user: result, token };
   }
 
+  async resetPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({
+      where: { userId },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    return { message: 'Password reset successfully' };
+  }
+
   async getUserProfile(userId: string): Promise<Omit<User, 'password'>> {
     const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) {

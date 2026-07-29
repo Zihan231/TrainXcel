@@ -21,6 +21,7 @@ import { extname } from 'path';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import type { Response } from 'express';
@@ -51,6 +52,20 @@ export class AuthController {
   async logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('jwt');
     return { message: 'Logged out successfully' };
+  }
+
+  @Patch('reset-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+    @Req() req: any,
+  ) {
+    return this.authService.resetPassword(
+      req.user.userId,
+      resetPasswordDto.currentPassword,
+      resetPasswordDto.newPassword,
+    );
   }
 
   // Get current logged-in user profile
