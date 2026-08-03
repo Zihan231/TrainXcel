@@ -156,7 +156,7 @@ export class TestsService {
 
   async getTestsForLesson(lessonId: number) {
     return this.testRepo.find({
-      where: { lesson: { id: lessonId } },
+      where: { lesson: { id: lessonId }, testType: Not('Practice') },
       relations: { questions: true },
       order: { id: 'DESC' },
     });
@@ -491,11 +491,15 @@ export class TestsService {
 
     const whereCondition: any = { isDraft: false };
     if (testId) {
-      whereCondition.test = { id: testId };
+      whereCondition.test = { id: testId, testType: Not('Practice') };
     } else if (lessonId) {
-      whereCondition.test = { lesson: { id: lessonId } };
+      whereCondition.test = {
+        lesson: { id: lessonId },
+        testType: Not('Practice'),
+      };
     } else {
       whereCondition.status = 'Pending Evaluation';
+      whereCondition.test = { testType: Not('Practice') };
     }
 
     return this.submissionRepo.find({
@@ -594,7 +598,7 @@ export class TestsService {
   async getLeaderboard(lessonId: number) {
     // Find all evaluated submissions for tests linked to this lesson
     const tests = await this.testRepo.find({
-      where: { lesson: { id: lessonId } },
+      where: { lesson: { id: lessonId }, testType: Not('Practice') },
     });
     if (!tests.length) return [];
 
@@ -721,7 +725,7 @@ export class TestsService {
 
   async getLessonSubmissions(lessonId: number) {
     const tests = await this.testRepo.find({
-      where: { lesson: { id: lessonId } },
+      where: { lesson: { id: lessonId }, testType: Not('Practice') },
     });
     if (!tests.length) return { submissions: [], remaining: 0 };
 
@@ -758,7 +762,7 @@ export class TestsService {
 
   async getTestSubmissions(testId: number) {
     const test = await this.testRepo.findOne({
-      where: { id: testId },
+      where: { id: testId, testType: Not('Practice') },
       relations: { course: true },
     });
     if (!test) return { submissions: [], remaining: 0 };
@@ -842,5 +846,45 @@ export class TestsService {
 
     await this.testRepo.remove(test);
     return { success: true, message: 'Test successfully deleted' };
+  }
+
+  async getMyPracticeTests(lessonId: number, userId: string) {
+    const user = await this.userRepository.findOne({ where: { userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.testRepo.find({
+      where: {
+        lesson: { id: lessonId },
+        testType: 'Practice',
+        createdByUserId: user.userId,
+      },
+      relations: { questions: true },
+      order: { id: 'DESC' },
+    });
+  }
+
+  async deletePracticeTest(
+    testId: number,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const user = await this.userRepository.findOne({ where: { userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const test = await this.testRepo.findOne({
+      where: { id: testId, testType: 'Practice', createdByUserId: user.userId },
+      relations: { questions: true },
+    });
+    if (!test) {
+      throw new NotFoundException('Practice test not found');
+    }
+
+    // Clean up reference script files
+    if (test.referenceScript) this.deletePhysicalFile(test.referenceScript);
+    for (const q of test.questions || []) {
+      if (q.referenceScript) this.deletePhysicalFile(q.referenceScript);
+    }
+
+    await this.testRepo.remove(test);
+    return { success: true, message: 'Practice test successfully deleted' };
   }
 }

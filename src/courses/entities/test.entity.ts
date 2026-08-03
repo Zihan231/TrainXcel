@@ -60,6 +60,9 @@ export class Test {
   @Column({ nullable: true })
   videoTestScriptId: number;
 
+  @Column({ nullable: true })
+  createdByUserId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

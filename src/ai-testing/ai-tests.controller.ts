@@ -4,6 +4,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { AiTestingService } from './ai-testing.service';
 import { CreateAiTestDto } from './dto/create-ai-test.dto';
+import { CreatePracticeTestDto } from './dto/create-practice-test.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('tests/ai')
@@ -32,7 +33,11 @@ export class AiTestsController {
   @UseGuards(JwtAuthGuard)
   async getGenerationRequest(@Param('id') id: string, @Req() req: any) {
     this.logger.log(`getGenerationRequest id=${id} by=${req.user?.userId}`);
-    return this.aiTestingService.getGenerationRequest(+id);
+    return this.aiTestingService.getGenerationRequest(
+      +id,
+      req.user?.userId,
+      req.user?.role,
+    );
   }
 
   @Get('requests')
@@ -42,6 +47,15 @@ export class AiTestsController {
       return [];
     }
     return this.aiTestingService.getGenerationRequestsByLesson(+lessonId);
+  }
+
+  @Post('practice/generate')
+  @UseGuards(JwtAuthGuard)
+  async generatePracticeTest(@Body() createDto: CreatePracticeTestDto, @Req() req: any) {
+    this.logger.log(`generatePracticeTest hit by user=${req.user?.userId} role=${req.user?.role} lessonId=${createDto?.lessonId}`);
+    const result = await this.aiTestingService.createPracticeTest(createDto, req.user.userId);
+    this.logger.log(`generatePracticeTest completed requestId=${result?.requestId} status=${result?.status}`);
+    return result;
   }
 
   @Post('upload-document')

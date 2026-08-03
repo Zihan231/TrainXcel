@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,10 +13,13 @@ import { Test } from '../courses/entities/test.entity';
 import { Question } from '../courses/entities/question.entity';
 import { Lesson } from '../courses/entities/lesson.entity';
 import { User } from '../auth/entities/user.entity';
+import { Enrollment } from '../courses/entities/enrollment.entity';
+import { Course } from '../courses/entities/course.entity';
 import { AiTestGenerationRequest } from './entities/ai-test-generation-request.entity';
 import { AiVideoTestScript } from './entities/ai-video-test-script.entity';
 import { AiGeneratedQuestion } from './entities/ai-generated-question.entity';
 import { CreateAiTestDto } from './dto/create-ai-test.dto';
+import { CreatePracticeTestDto } from './dto/create-practice-test.dto';
 import { GeminiAiService } from './gemini-ai.service';
 
 @Injectable()
@@ -28,6 +32,9 @@ export class AiTestingService {
     private readonly questionRepo: Repository<Question>,
     @InjectRepository(Lesson) private readonly lessonRepo: Repository<Lesson>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
+    @InjectRepository(Course) private readonly courseRepo: Repository<Course>,
     @InjectRepository(AiTestGenerationRequest)
     private readonly requestRepo: Repository<AiTestGenerationRequest>,
     @InjectRepository(AiVideoTestScript)
@@ -87,6 +94,116 @@ export class AiTestingService {
     return generationRequest;
   }
 
+  async createPracticeTest(dto: CreatePracticeTestDto, userId: string) {
+    this.logger.log(`createPracticeTest request user=${userId} lessonId=${dto.lessonId} mcq=${dto.mcqCount} cq=${dto.cqCount} video=${dto.includeVideoTest}`);
+    const user = await this.userRepo.findOne({ where: { userId } });
+    if (!user) {
+      this.logger.warn(`createPracticeTest user not found userId=${userId}`);
+      throw new NotFoundException('User not found');
+    }
+
+    const lesson = await this.lessonRepo.findOne({
+      where: { id: dto.lessonId },
+      relations: { course: true },
+    });
+    if (!lesson) {
+      this.logger.warn(`createPracticeTest lesson not found lessonId=${dto.lessonId}`);
+      throw new NotFoundException('Lesson not found');
+    }
+
+    if (String(lesson.materialType).toLowerCase() === 'video') {
+      this.logger.warn(`createPracticeTest rejected — video lesson lessonId=${dto.lessonId}`);
+      throw new BadRequestException(
+        'Practice tests are not available for video lessons.',
+      );
+    }
+
+    if (!lesson.practiceEnabled) {
+      this.logger.warn(`createPracticeTest rejected — practice disabled lessonId=${dto.lessonId}`);
+      throw new ForbiddenException(
+        'AI Test Practice is disabled for this lesson by the instructor.',
+      );
+    }
+
+    if (!lesson.course) {
+      this.logger.warn(`createPracticeTest lesson has no course lessonId=${dto.lessonId}`);
+      throw new BadRequestException('Lesson is not attached to a course.');
+    }
+
+    // Require enrollment for practice generation
+    const enrollment = await this.enrollmentRepo.findOne({
+      where: {
+        user: { id: user.id },
+        course: { id: lesson.course.id },
+      },
+    });
+    if (!enrollment) {
+      throw new ForbiddenException(
+        'You must be enrolled in this course to generate practice tests.',
+      );
+    }
+
+    if (!lesson.materialLink || !String(lesson.materialLink).startsWith('/uploads/')) {
+      throw new BadRequestException(
+        'Lesson material is not an uploaded file and cannot be used as practice reference.',
+      );
+    }
+
+    const fullPath = path.resolve('.', lesson.materialLink.replace(/^[/\\]+/, ''));
+    if (!fs.existsSync(fullPath)) {
+      throw new BadRequestException(
+        `Lesson material file not found at ${lesson.materialLink}.`,
+      );
+    }
+
+    const sourceDocumentType = this.inferDocumentType(lesson.materialLink);
+
+    const generationRequest = this.requestRepo.create({
+      requestId: this.generateRequestId(),
+      lessonId: dto.lessonId,
+      sourceDocumentUrl: lesson.materialLink,
+      sourceDocumentType,
+      mcqCount: dto.mcqCount,
+      cqCount: dto.cqCount,
+      includeVideoTest: dto.includeVideoTest || false,
+      status: 'pending',
+      isPractice: true,
+      createdByUserId: userId,
+    });
+
+    await this.requestRepo.save(generationRequest);
+    this.logger.log(`createPracticeTest saved request id=${generationRequest.id} requestId=${generationRequest.requestId}`);
+
+    const payload = {
+      requestId: generationRequest.id,
+      lessonId: dto.lessonId,
+      sourceDocumentUrl: lesson.materialLink,
+      sourceDocumentType,
+      mcqCount: dto.mcqCount,
+      cqCount: dto.cqCount,
+      includeVideoTest: dto.includeVideoTest || false,
+      title: dto.testIndex ? `Practice Test ${dto.testIndex}` : undefined,
+      isPractice: true,
+      createdByUserId: userId,
+    };
+
+    setImmediate(() => {
+      this.processGenerationJob(payload).catch((err) => {
+        this.logger.error(`Async practice generation failed requestId=${payload.requestId}: ${err.message}`);
+      });
+    });
+
+    return generationRequest;
+  }
+
+  private inferDocumentType(fileUrl: string): string {
+    const ext = path.extname(fileUrl).toLowerCase();
+    if (ext === '.pdf') return 'pdf';
+    if (ext === '.doc' || ext === '.docx') return 'docx';
+    if (ext === '.ppt' || ext === '.pptx') return 'ppt';
+    return 'pdf';
+  }
+
   async processGenerationJob(data: {
     requestId: number;
     lessonId: number;
@@ -96,6 +213,8 @@ export class AiTestingService {
     cqCount: number;
     includeVideoTest?: boolean;
     title?: string;
+    isPractice?: boolean;
+    createdByUserId?: string;
   }) {
     this.logger.log(`processGenerationJob start requestId=${data.requestId} lessonId=${data.lessonId}`);
     const generationRequest = await this.requestRepo.findOne({
@@ -173,13 +292,20 @@ export class AiTestingService {
         throw new NotFoundException('Lesson not found');
       }
 
+      const isPractice = data.isPractice || false;
+
       const test = this.testRepo.create({
-        title: data.title || `Test for - ${lesson.title}`,
-        description: 'Auto-generated test from uploaded document',
-        testType: 'Lesson',
+        title: isPractice ? (data.title || `Practice Test - ${lesson.title}`) : (data.title || `Test for - ${lesson.title}`),
+        description: isPractice
+          ? 'AI generated practice test from lesson material'
+          : 'Auto-generated test from uploaded document',
+        testType: isPractice ? 'Practice' : 'Lesson',
         referenceScript: videoTestScript || referenceScript || undefined,
         lesson: { id: data.lessonId } as Lesson,
-        status: 'draft',
+        status: isPractice ? 'published' : 'draft',
+        ...(isPractice && data.createdByUserId
+          ? { createdByUserId: data.createdByUserId }
+          : {}),
       });
       const savedTest = await this.testRepo.save(test);
 
@@ -264,20 +390,34 @@ export class AiTestingService {
     }
   }
 
-  async getGenerationRequest(id: number) {
+  async getGenerationRequest(id: number, requesterUserId?: string, requesterRole?: string) {
     this.logger.log(`getGenerationRequest id=${id}`);
     const request = await this.requestRepo.findOne({ where: { id } });
     if (!request) {
       this.logger.warn(`Generation request ${id} not found`);
       throw new NotFoundException('Generation request not found');
     }
+
+    if (
+      request.isPractice &&
+      request.createdByUserId &&
+      request.createdByUserId !== requesterUserId &&
+      requesterRole !== 'admin' &&
+      requesterRole !== 'employee'
+    ) {
+      this.logger.warn(`getGenerationRequest id=${id} forbidden for ${requesterUserId}`);
+      throw new ForbiddenException(
+        'You are not allowed to view this generation request.',
+      );
+    }
+
     this.logger.log(`getGenerationRequest id=${id} status=${request.status} errorMessage=${request.errorMessage || ''}`);
     return request;
   }
 
   async getGenerationRequestsByLesson(lessonId: number) {
     return this.requestRepo.find({
-      where: { lessonId },
+      where: { lessonId, isPractice: false },
       order: { createdAt: 'DESC' },
     });
   }

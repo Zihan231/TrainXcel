@@ -41,6 +41,12 @@ export class AiTestGenerationRequest {
   @Column({ default: 'pending' })
   status: string;
 
+  @Column({ default: false })
+  isPractice: boolean;
+
+  @Column({ nullable: true })
+  createdByUserId: string;
+
   @Column({ type: 'text', nullable: true })
   errorMessage: string | null;
 

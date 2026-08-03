@@ -9,6 +9,8 @@ import { Test } from '../courses/entities/test.entity';
 import { Question } from '../courses/entities/question.entity';
 import { Lesson } from '../courses/entities/lesson.entity';
 import { User } from '../auth/entities/user.entity';
+import { Enrollment } from '../courses/entities/enrollment.entity';
+import { Course } from '../courses/entities/course.entity';
 import { DocumentParserService } from './document-parser.service';
 import { GeminiAiService } from './gemini-ai.service';
 import { AuthModule } from '../auth/auth.module';
@@ -23,6 +25,8 @@ import { AuthModule } from '../auth/auth.module';
       Question,
       Lesson,
       User,
+      Enrollment,
+      Course,
     ]),
     AuthModule,
   ],

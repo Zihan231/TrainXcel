@@ -36,6 +36,9 @@ export class Lesson {
   @Column({ default: 'Draft' })
   status: string; // 'Active' | 'Draft'
 
+  @Column({ default: false })
+  practiceEnabled: boolean;
+
   @ManyToOne(() => Course, (course) => course.lessons, { onDelete: 'CASCADE' })
   course: Course;
 

@@ -79,6 +79,18 @@ export class TestsController {
     return this.testsService.getTestsForLesson(+lessonId);
   }
 
+  @Get('practice/:lessonId')
+  @UseGuards(JwtAuthGuard)
+  async getMyPracticeTests(@Param('lessonId') lessonId: string, @Req() req: any) {
+    return this.testsService.getMyPracticeTests(+lessonId, req.user.userId);
+  }
+
+  @Delete('practice/:testId')
+  @UseGuards(JwtAuthGuard)
+  async deletePracticeTest(@Param('testId') testId: string, @Req() req: any) {
+    return this.testsService.deletePracticeTest(+testId, req.user.userId);
+  }
+
   @Get('course/:courseId')
   async getTestsForCourse(@Param('courseId') courseId: string) {
     return this.testsService.getTestsForCourse(courseId);

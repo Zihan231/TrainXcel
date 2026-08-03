@@ -1,4 +1,10 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateLessonDto {
   @IsString()
@@ -24,4 +30,8 @@ export class CreateLessonDto {
   @IsOptional()
   @IsIn(['Active', 'Draft'], { message: 'Status must be Active or Draft' })
   status?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  practiceEnabled?: boolean;
 }

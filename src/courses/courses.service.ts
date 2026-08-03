@@ -619,6 +619,7 @@ export class CoursesService {
         materialType: true,
         materialLink: true,
         status: true,
+        practiceEnabled: true,
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
@@ -1122,7 +1123,10 @@ export class CoursesService {
     if (!alreadyCompleted) {
       // Check if this lesson has any tests
       const tests = await this.testRepository.find({
-        where: { lesson: { id: lesson.id } },
+        where: {
+          lesson: { id: lesson.id },
+          testType: Not('Practice'),
+        },
       });
       if (tests.length > 0) {
         // Must have at least one valid submission for all tests?
