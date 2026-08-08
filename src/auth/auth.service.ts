@@ -128,16 +128,6 @@ export class AuthService {
     const token = await this.signToken(user.userId, user.role);
     const { password, ...result } = user;
 
-    await this.activityLogsService.log({
-      actorId: user.userId,
-      actorName: user.name,
-      actorRole: user.role,
-      action: 'USER_LOGIN',
-      targetType: 'User',
-      targetName: user.name,
-      targetId: user.userId,
-    });
-
     return { user: result, token };
   }
 

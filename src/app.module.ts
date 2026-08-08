@@ -9,6 +9,7 @@ import { CoursesModule } from './courses/courses.module';
 import { ExamGroupsModule } from './exam-groups/exam-groups.module';
 import { AiTestingModule } from './ai-testing/ai-testing.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { CertificatesModule } from './certificates/certificates.module';
 
 import { UploadsController } from './uploads.controller';
 
@@ -37,6 +38,7 @@ import { UploadsController } from './uploads.controller';
     ExamGroupsModule,
     AiTestingModule,
     ActivityLogsModule,
+    CertificatesModule,
   ],
   controllers: [AppController, UploadsController],
   providers: [AppService],

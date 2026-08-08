@@ -575,10 +575,11 @@ export class TestsService {
     const savedSub = await this.submissionRepo.save(submission);
 
     // Send notification to the student
+    let fullSubmission: TestSubmission | null = null;
     try {
-      const fullSubmission = await this.submissionRepo.findOne({
+      fullSubmission = await this.submissionRepo.findOne({
         where: { id: savedSub.id },
-        relations: { user: true, test: true },
+        relations: { user: true, test: { course: true, lesson: { course: true } } },
       });
       if (fullSubmission && fullSubmission.user) {
         const notification = new Notification();
@@ -615,6 +616,8 @@ export class TestsService {
         submissionId: savedSub.id,
         changedFields: evalDto.evaluations.map((e) => e.submissionAnswerId),
       },
+      fullSubmission?.test?.course?.courseId ||
+        fullSubmission?.test?.lesson?.course?.courseId,
     );
 
     return savedSub;
@@ -636,7 +639,11 @@ export class TestsService {
 
     const submission = await this.submissionRepo.findOne({
       where: { id: submissionId },
-      relations: { answers: { question: true }, user: true, test: true },
+      relations: {
+        answers: { question: true },
+        user: true,
+        test: { course: true, lesson: { course: true } },
+      },
     });
     if (!submission) throw new NotFoundException('Submission not found');
 
@@ -729,6 +736,9 @@ export class TestsService {
       targetType: 'Submission',
       targetName: savedSub.test.title || `Submission #${savedSub.id}`,
       targetId: String(savedSub.id),
+      courseId:
+        savedSub.test?.course?.courseId ||
+        savedSub.test?.lesson?.course?.courseId,
       details: {
         studentUserId: savedSub.user?.userId,
         studentName: savedSub.user?.name,
@@ -1064,6 +1074,7 @@ export class TestsService {
     targetName: string,
     targetId: string,
     details?: any,
+    courseId?: string,
   ) {
     try {
       const actor = await this.userRepository.findOne({ where: { userId } });
@@ -1075,6 +1086,7 @@ export class TestsService {
         targetType,
         targetName,
         targetId,
+        courseId,
         details,
       });
     } catch (err: any) {
