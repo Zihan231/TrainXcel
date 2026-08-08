@@ -49,8 +49,15 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Res({ passthrough: true }) response: Response) {
+  async logout(
+    @Res({ passthrough: true }) response: Response,
+    @Req() req: any,
+  ) {
     response.clearCookie('jwt');
+    const token = req.cookies?.['jwt'];
+    if (token) {
+      this.authService.logLogout(token).catch(() => {});
+    }
     return { message: 'Logged out successfully' };
   }
 

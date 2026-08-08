@@ -16,6 +16,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 import * as fs from 'fs';
 import { join } from 'path';
 
@@ -27,6 +28,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   async signToken(userId: string, role: string): Promise<string> {
@@ -80,6 +82,18 @@ export class AuthService {
 
     const savedUser = await this.userRepository.save(newUser);
     const { password, ...result } = savedUser;
+
+    await this.activityLogsService.log({
+      actorId: requesterId,
+      actorName: requester.name,
+      actorRole: requester.role,
+      action: 'EMPLOYEE_CREATED',
+      targetType: 'User',
+      targetName: result.name,
+      targetId: result.userId,
+      details: { email: result.email, role: result.role },
+    });
+
     return result;
   }
 
@@ -113,7 +127,38 @@ export class AuthService {
 
     const token = await this.signToken(user.userId, user.role);
     const { password, ...result } = user;
+
+    await this.activityLogsService.log({
+      actorId: user.userId,
+      actorName: user.name,
+      actorRole: user.role,
+      action: 'USER_LOGIN',
+      targetType: 'User',
+      targetName: user.name,
+      targetId: user.userId,
+    });
+
     return { user: result, token };
+  }
+
+  async logLogout(token: string): Promise<void> {
+    try {
+      const payload = this.jwtService.verify(token);
+      const userId = payload?.userId;
+      if (!userId) return;
+      const actor = await this.userRepository.findOne({ where: { userId } });
+      await this.activityLogsService.log({
+        actorId: userId,
+        actorName: actor?.name || userId,
+        actorRole: actor?.role || 'unknown',
+        action: 'USER_LOGOUT',
+        targetType: 'User',
+        targetName: actor?.name || userId,
+        targetId: userId,
+      });
+    } catch (err: any) {
+      this.logger.warn(`[ActivityLog] Logout log skipped: ${err?.message}`);
+    }
   }
 
   async resetPassword(
@@ -206,6 +251,34 @@ export class AuthService {
     Object.assign(user, updateUserDto);
     const saved = await this.userRepository.save(user);
     const { password, ...result } = saved;
+
+    // Audit log — resolve the actual actor for accuracy (admin may edit another user)
+    let actorName = result.name;
+    let actorRole = result.role;
+    if (requesterId !== result.userId) {
+      const actor = await this.userRepository.findOne({
+        where: { userId: requesterId },
+      });
+      if (actor) {
+        actorName = actor.name;
+        actorRole = actor.role;
+      }
+    }
+    await this.activityLogsService.log({
+      actorId: requesterId,
+      actorName,
+      actorRole,
+      action: 'PROFILE_UPDATED',
+      targetType: 'User',
+      targetName: result.name,
+      targetId: result.userId,
+      details: {
+        changedFields: Object.keys(updateUserDto).filter(
+          (k) => (updateUserDto as any)[k] !== undefined,
+        ),
+      },
+    });
+
     return result;
   }
 
@@ -235,9 +308,22 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
+    const oldRole = user.role;
     user.role = role;
     const saved = await this.userRepository.save(user);
     const { password, ...result } = saved;
+
+    await this.activityLogsService.log({
+      actorId: adminUserId,
+      actorName: adminUser.name,
+      actorRole: adminUser.role,
+      action: 'ROLE_CHANGED',
+      targetType: 'User',
+      targetName: result.name,
+      targetId: result.userId,
+      details: { userId: result.userId, fromRole: oldRole, toRole: role },
+    });
+
     return result;
   }
 

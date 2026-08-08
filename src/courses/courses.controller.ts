@@ -260,20 +260,26 @@ export class CoursesController {
   @Post('categories')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
-  async createCategory(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.coursesService.createCategory(createCategoryDto);
+  async createCategory(
+    @Body() createCategoryDto: CreateCategoryDto,
+    @Req() req: any,
+  ) {
+    return this.coursesService.createCategory(
+      createCategoryDto,
+      req.user.userId,
+    );
   }
 
   @Delete('categories/:id')
   @UseGuards(JwtAuthGuard)
   async deleteCategory(@Param('id') id: string, @Req() req: any) {
-    const { role } = req.user;
+    const { role, userId } = req.user;
     if (role !== 'admin' && role !== 'employee') {
       throw new ForbiddenException(
         'Only admins and employees can delete categories',
       );
     }
-    return this.coursesService.deleteCategory(+id);
+    return this.coursesService.deleteCategory(+id, userId);
   }
 
   // --- Courses ---

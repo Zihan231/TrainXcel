@@ -23,12 +23,14 @@ import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { EvaluateCqDto } from './dto/evaluate-cq.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
+import { UpdateMarksDto } from './dto/update-marks.dto';
 import { MediaProcessorService } from './media-processor.service';
 // import { SpeechService } from './speech.service';
 import { CloudStorageService } from './cloud-storage.service';
 import { GeminiAnalysisService } from './gemini-analysis.service';
 import { VideoEvaluationService } from './video-evaluation/video-evaluation.service';
 import { CqEvaluationService } from './cq-evaluation/cq-evaluation.service';
+import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 
 @Injectable()
 export class TestsService {
@@ -55,6 +57,7 @@ export class TestsService {
     private readonly geminiAnalysisService: GeminiAnalysisService,
     private readonly videoEvaluationService: VideoEvaluationService,
     private readonly cqEvaluationService: CqEvaluationService,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   async createTest(createDto: CreateTestDto, userId: string, role: string) {
@@ -122,6 +125,16 @@ export class TestsService {
     });
 
     const savedTest = await this.testRepo.save(test);
+
+    // Audit log
+    await this.logAction(userId, 'TEST_CREATED', 'Test', savedTest.title, String(savedTest.id), {
+      testId: savedTest.id,
+      title: savedTest.title,
+      testType: savedTest.testType,
+      courseId: savedTest.course?.id,
+      lessonId: savedTest.lesson?.id,
+      status: savedTest.status,
+    });
 
     // Trigger Notification for Enrolled Users
     if (test.course) {
@@ -592,6 +605,138 @@ export class TestsService {
       );
     }
 
+    await this.logAction(
+      userId,
+      'TEST_MARKS_EVALUATED',
+      'Submission',
+      `Submission #${savedSub.id}`,
+      String(savedSub.id),
+      {
+        submissionId: savedSub.id,
+        changedFields: evalDto.evaluations.map((e) => e.submissionAnswerId),
+      },
+    );
+
+    return savedSub;
+  }
+
+  async updateSubmissionMarks(
+    submissionId: number,
+    dto: UpdateMarksDto,
+    userId: string,
+  ) {
+    // Admin-only: always re-verify role from DB, never trust the JWT payload
+    const user = await this.userRepository.findOne({ where: { userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Only admin users can edit student marks');
+    }
+
+    const submission = await this.submissionRepo.findOne({
+      where: { id: submissionId },
+      relations: { answers: { question: true }, user: true, test: true },
+    });
+    if (!submission) throw new NotFoundException('Submission not found');
+
+    const changes: any[] = [];
+    let marksDiff = 0;
+
+    for (const ev of dto.answers) {
+      const ans = submission.answers.find((a) => a.id === ev.submissionAnswerId);
+      if (!ans) continue;
+      // Only CQ and Video answers carry manually editable marks
+      if (ans.question.type !== 'CQ' && ans.question.type !== 'Video') {
+        continue;
+      }
+
+      if (ev.marksAwarded < 0 || ev.marksAwarded > ans.question.marks) {
+        throw new BadRequestException(
+          `Awarded marks (${ev.marksAwarded}) cannot exceed maximum allowed marks (${ans.question.marks}) for question "${ans.question.questionText}".`,
+        );
+      }
+
+      const oldMarks = ans.marksAwarded || 0;
+      const oldComment = ans.evaluatorComment || '';
+      if (
+        oldMarks === ev.marksAwarded &&
+        oldComment === (ev.evaluatorComment || '')
+      ) {
+        continue;
+      }
+
+      ans.marksAwarded = ev.marksAwarded;
+      if (ev.evaluatorComment !== undefined) {
+        ans.evaluatorComment = ev.evaluatorComment;
+      }
+      ans.evaluatedBy = 'Human';
+
+      marksDiff += ev.marksAwarded - oldMarks;
+      changes.push({
+        question: ans.question.questionText,
+        from: oldMarks,
+        to: ev.marksAwarded,
+      });
+    }
+
+    if (!changes.length) {
+      return submission;
+    }
+
+    submission.marksObtained = Math.max(
+      0,
+      submission.marksObtained + marksDiff,
+    );
+    submission.status = 'Evaluated';
+
+    await this.answerRepo.save(submission.answers);
+    const savedSub = await this.submissionRepo.save(submission);
+
+    // Send notification to the student
+    try {
+      if (savedSub.user) {
+        const notification = new Notification();
+        notification.message = `Your marks for test "${savedSub.test.title}" have been updated.`;
+        notification.user = savedSub.user;
+        notification.actionLink = `/dashboard?tab=my-learning`;
+        const savedNotif = await this.notificationRepo.save(notification);
+
+        this.notificationsGateway.sendNotificationToUser(
+          savedSub.user.userId,
+          {
+            id: savedNotif.id,
+            message: savedNotif.message,
+            actionLink: savedNotif.actionLink,
+            createdAt: savedNotif.createdAt,
+            isRead: false,
+          },
+        );
+      }
+    } catch (notifErr) {
+      console.error(
+        `[Notification] Failed to notify user for mark update:`,
+        notifErr,
+      );
+    }
+
+    // Audit log
+    await this.activityLogsService.log({
+      actorId: user.userId,
+      actorName: user.name,
+      actorRole: user.role,
+      action: 'MARKS_EDITED',
+      targetType: 'Submission',
+      targetName: savedSub.test.title || `Submission #${savedSub.id}`,
+      targetId: String(savedSub.id),
+      details: {
+        studentUserId: savedSub.user?.userId,
+        studentName: savedSub.user?.name,
+        testId: savedSub.test?.id,
+        changes,
+      },
+    });
+
     return savedSub;
   }
 
@@ -792,7 +937,7 @@ export class TestsService {
     };
   }
 
-  async updateTest(testId: number, dto: UpdateTestDto, role: string) {
+  async updateTest(testId: number, dto: UpdateTestDto, role: string, userId: string) {
     if (role !== 'admin' && role !== 'employee') {
       throw new ForbiddenException(
         'Only admin or employee can edit test configuration',
@@ -824,11 +969,27 @@ export class TestsService {
       }
     }
 
-    return this.testRepo.save(test);
+    const saved = await this.testRepo.save(test);
+
+    await this.logAction(
+      userId,
+      'TEST_UPDATED',
+      'Test',
+      saved.title,
+      String(saved.id),
+      {
+        testId: saved.id,
+        title: saved.title,
+        changedFields: Object.keys(dto).filter((k) => (dto as any)[k] !== undefined),
+      },
+    );
+
+    return saved;
   }
 
   async deleteTest(
     testId: number,
+    userId: string,
   ): Promise<{ success: boolean; message: string }> {
     const test = await this.testRepo.findOne({
       where: { id: testId },
@@ -844,7 +1005,15 @@ export class TestsService {
       if (q.referenceScript) this.deletePhysicalFile(q.referenceScript);
     }
 
+    const title = test.title;
+    const targetId = String(test.id);
     await this.testRepo.remove(test);
+
+    await this.logAction(userId, 'TEST_DELETED', 'Test', title, targetId, {
+      testId: targetId,
+      title,
+    });
+
     return { success: true, message: 'Test successfully deleted' };
   }
 
@@ -886,5 +1055,30 @@ export class TestsService {
 
     await this.testRepo.remove(test);
     return { success: true, message: 'Practice test successfully deleted' };
+  }
+
+  private async logAction(
+    userId: string,
+    action: string,
+    targetType: string,
+    targetName: string,
+    targetId: string,
+    details?: any,
+  ) {
+    try {
+      const actor = await this.userRepository.findOne({ where: { userId } });
+      await this.activityLogsService.log({
+        actorId: userId,
+        actorName: actor?.name || userId,
+        actorRole: actor?.role || 'unknown',
+        action,
+        targetType,
+        targetName,
+        targetId,
+        details,
+      });
+    } catch (err: any) {
+      this.logger.error(`[ActivityLog] Failed to log ${action}: ${err?.message}`);
+    }
   }
 }

@@ -24,6 +24,7 @@ import { CreateTestDto } from './dto/create-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { EvaluateCqDto } from './dto/evaluate-cq.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
+import { UpdateMarksDto } from './dto/update-marks.dto';
 
 @Controller('tests')
 @UseGuards(JwtAuthGuard)
@@ -199,23 +200,33 @@ export class TestsController {
     return this.testsService.getSubmissionById(+id);
   }
 
+  @Put('submissions/:id/marks')
+  async updateSubmissionMarks(
+    @Param('id') id: string,
+    @Body() dto: UpdateMarksDto,
+    @Req() req: any,
+  ) {
+    const { userId } = req.user;
+    return this.testsService.updateSubmissionMarks(+id, dto, userId);
+  }
+
   @Put(':testId')
   async updateTest(
     @Param('testId') testId: string,
     @Body() body: UpdateTestDto,
     @Req() req: any,
   ) {
-    const { role } = req.user;
-    return this.testsService.updateTest(+testId, body, role);
+    const { role, userId } = req.user;
+    return this.testsService.updateTest(+testId, body, role, userId);
   }
 
   @Delete(':testId')
   async deleteTest(@Param('testId') testId: string, @Req() req: any) {
-    const { role } = req.user;
+    const { role, userId } = req.user;
     if (role !== 'admin' && role !== 'employee') {
       throw new ForbiddenException('Only Admin or Employee can delete tests.');
     }
-    return this.testsService.deleteTest(+testId);
+    return this.testsService.deleteTest(+testId, userId);
   }
 
   @Post('standalone/:examId/finalize')

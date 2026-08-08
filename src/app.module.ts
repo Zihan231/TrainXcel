@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { ExamGroupsModule } from './exam-groups/exam-groups.module';
 import { AiTestingModule } from './ai-testing/ai-testing.module';
+import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 
 import { UploadsController } from './uploads.controller';
 
@@ -35,6 +36,7 @@ import { UploadsController } from './uploads.controller';
     CoursesModule,
     ExamGroupsModule,
     AiTestingModule,
+    ActivityLogsModule,
   ],
   controllers: [AppController, UploadsController],
   providers: [AppService],

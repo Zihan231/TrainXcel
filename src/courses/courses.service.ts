@@ -30,6 +30,7 @@ import { CreateLessonDto } from './dto/create-lesson.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { NotificationsGateway } from './notifications.gateway';
+import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 import * as fs from 'fs';
 import { join } from 'path';
 
@@ -55,7 +56,35 @@ export class CoursesService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
+
+  private async logAction(
+    userId: string,
+    action: string,
+    targetType: string,
+    targetName: string,
+    targetId: string,
+    details?: any,
+    courseId?: string,
+  ) {
+    try {
+      const actor = await this.userRepository.findOne({ where: { userId } });
+      await this.activityLogsService.log({
+        actorId: userId,
+        actorName: actor?.name || userId,
+        actorRole: actor?.role || 'unknown',
+        action,
+        targetType,
+        targetName,
+        targetId,
+        courseId,
+        details,
+      });
+    } catch (err: any) {
+      this.logger.error(`[ActivityLog] Failed to log ${action}: ${err?.message}`);
+    }
+  }
 
   private deletePhysicalFile(materialLink: string) {
     if (materialLink && materialLink.startsWith('/uploads/')) {
@@ -204,6 +233,7 @@ export class CoursesService {
 
   async createCategory(
     createCategoryDto: CreateCategoryDto,
+    requesterId: string,
   ): Promise<Category> {
     const existing = await this.categoryRepository.findOne({
       where: { name: createCategoryDto.name },
@@ -212,11 +242,23 @@ export class CoursesService {
       return existing;
     }
     const cat = this.categoryRepository.create(createCategoryDto);
-    return this.categoryRepository.save(cat);
+    const saved = await this.categoryRepository.save(cat);
+
+    await this.logAction(
+      requesterId,
+      'CATEGORY_CREATED',
+      'Category',
+      saved.name,
+      String(saved.id),
+      { categoryId: saved.id, name: saved.name },
+    );
+
+    return saved;
   }
 
   async deleteCategory(
     id: number,
+    requesterId: string,
   ): Promise<{ success: boolean; message: string }> {
     const category = await this.categoryRepository.findOne({ where: { id } });
     if (!category) {
@@ -232,7 +274,18 @@ export class CoursesService {
         'Cannot delete category because it is being used by existing courses.',
       );
     }
+    const name = category.name;
     await this.categoryRepository.remove(category);
+
+    await this.logAction(
+      requesterId,
+      'CATEGORY_DELETED',
+      'Category',
+      name,
+      String(id),
+      { categoryId: id, name },
+    );
+
     return { success: true, message: 'Category deleted successfully' };
   }
 
@@ -411,7 +464,23 @@ export class CoursesService {
       category,
     });
 
-    return this.courseRepository.save(course);
+    const savedCourse = await this.courseRepository.save(course);
+
+    await this.logAction(
+      requesterId,
+      'COURSE_CREATED',
+      'Course',
+      savedCourse.name,
+      savedCourse.courseId,
+      {
+        courseId: savedCourse.courseId,
+        status: savedCourse.status,
+        categoryId: savedCourse.category?.id,
+      },
+      savedCourse.courseId,
+    );
+
+    return savedCourse;
   }
 
   async updateCourse(
@@ -452,7 +521,24 @@ export class CoursesService {
     }
 
     Object.assign(course, updateCourseDto);
-    return this.courseRepository.save(course);
+    const saved = await this.courseRepository.save(course);
+
+    await this.logAction(
+      requesterId,
+      'COURSE_UPDATED',
+      'Course',
+      saved.name,
+      saved.courseId,
+      {
+        courseId: saved.courseId,
+        changedFields: Object.keys(updateCourseDto).filter(
+          (k) => (updateCourseDto as any)[k] !== undefined,
+        ),
+      },
+      saved.courseId,
+    );
+
+    return saved;
   }
 
   async updateCourseStatus(
@@ -482,7 +568,19 @@ export class CoursesService {
     }
 
     course.status = status;
-    return this.courseRepository.save(course);
+    const saved = await this.courseRepository.save(course);
+
+    await this.logAction(
+      userId,
+      'COURSE_STATUS_CHANGED',
+      'Course',
+      saved.name,
+      saved.courseId,
+      { courseId: saved.courseId, newStatus: status },
+      saved.courseId,
+    );
+
+    return saved;
   }
 
   async deleteCourse(
@@ -509,6 +607,17 @@ export class CoursesService {
     }
 
     await this.courseRepository.softRemove(course);
+
+    await this.logAction(
+      requesterId,
+      'COURSE_DELETED',
+      'Course',
+      course.name,
+      course.courseId,
+      { courseId: course.courseId },
+      course.courseId,
+    );
+
     return { message: 'Course successfully moved to recycle bin' };
   }
 
@@ -539,6 +648,17 @@ export class CoursesService {
     }
 
     await this.courseRepository.restore(course.id);
+
+    await this.logAction(
+      requesterId,
+      'COURSE_RESTORED',
+      'Course',
+      course.name,
+      course.courseId,
+      { courseId: course.courseId },
+      course.courseId,
+    );
+
     return { message: 'Course successfully restored' };
   }
 
@@ -572,6 +692,17 @@ export class CoursesService {
     await this.cleanupPhysicalFilesForCourse(course.id);
 
     await this.courseRepository.delete(course.id);
+
+    await this.logAction(
+      requesterId,
+      'COURSE_PERMANENTLY_DELETED',
+      'Course',
+      course.name,
+      course.courseId,
+      { courseId: course.courseId },
+      course.courseId,
+    );
+
     return { message: 'Course permanently deleted' };
   }
 
@@ -716,6 +847,20 @@ export class CoursesService {
       }
     }
 
+    await this.logAction(
+      requesterId,
+      'LESSON_CREATED',
+      'Lesson',
+      savedLesson.title,
+      savedLesson.lessonId,
+      {
+        lessonId: savedLesson.lessonId,
+        courseId: course.courseId,
+        status: savedLesson.status,
+      },
+      course.courseId,
+    );
+
     return savedLesson;
   }
 
@@ -751,7 +896,25 @@ export class CoursesService {
     }
 
     Object.assign(lesson, updateLessonDto);
-    return this.lessonRepository.save(lesson);
+    const saved = await this.lessonRepository.save(lesson);
+
+    await this.logAction(
+      requesterId,
+      'LESSON_UPDATED',
+      'Lesson',
+      saved.title,
+      saved.lessonId,
+      {
+        lessonId: saved.lessonId,
+        courseId: courseId,
+        changedFields: Object.keys(updateLessonDto).filter(
+          (k) => (updateLessonDto as any)[k] !== undefined,
+        ),
+      },
+      courseId,
+    );
+
+    return saved;
   }
 
   async deleteLesson(
@@ -820,6 +983,17 @@ export class CoursesService {
     }
 
     await this.lessonRepository.softRemove(lesson);
+
+    await this.logAction(
+      requesterId,
+      'LESSON_DELETED',
+      'Lesson',
+      lesson.title,
+      lesson.lessonId,
+      { lessonId: lesson.lessonId, courseId },
+      courseId,
+    );
+
     return { message: 'Lesson successfully moved to recycle bin' };
   }
 
@@ -879,6 +1053,16 @@ export class CoursesService {
         await this.enrollmentRepository.save(enrollment);
       }
     }
+
+    await this.logAction(
+      requesterId,
+      'LESSON_RESTORED',
+      'Lesson',
+      lesson.title,
+      lesson.lessonId,
+      { lessonId: lesson.lessonId, courseId },
+      courseId,
+    );
 
     return { message: 'Lesson successfully restored' };
   }
@@ -957,6 +1141,17 @@ export class CoursesService {
     await this.cleanupPhysicalFilesForLesson(lesson.id);
 
     await this.lessonRepository.delete(lesson.id);
+
+    await this.logAction(
+      requesterId,
+      'LESSON_PERMANENTLY_DELETED',
+      'Lesson',
+      lesson.title,
+      lesson.lessonId,
+      { lessonId: lesson.lessonId, courseId },
+      courseId,
+    );
+
     return { message: 'Lesson permanently deleted' };
   }
 
@@ -1000,6 +1195,16 @@ export class CoursesService {
 
     course.enrolled = (course.enrolled || 0) + 1;
     await this.courseRepository.save(course);
+
+    await this.logAction(
+      user.userId,
+      'USER_ENROLLED',
+      'Course',
+      course.name,
+      course.courseId,
+      { courseId: course.courseId, studentName: user.name },
+      course.courseId,
+    );
 
     return savedEnrollment;
   }
@@ -1727,6 +1932,11 @@ export class CoursesService {
       .from(Course)
       .where('deletedAt IS NOT NULL')
       .execute();
+
+    await this.logAction(requesterId, 'RECYCLE_BIN_EMPTIED', 'RecycleBin', 'Recycle Bin', 'trash', {
+      coursesDeleted: softDeletedCourses.length,
+      lessonsDeleted: softDeletedLessons.length,
+    });
 
     return { message: 'Recycle bin successfully emptied' };
   }
